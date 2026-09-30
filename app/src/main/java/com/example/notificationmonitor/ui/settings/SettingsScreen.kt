@@ -59,6 +59,10 @@ fun SettingsScreen(
     var accessEnabled by remember {
         mutableStateOf(NotificationAccessHelper.isNotificationAccessEnabled(context))
     }
+    var batteryUnrestricted by remember {
+        mutableStateOf(NotificationAccessHelper.isIgnoringBatteryOptimizations(context))
+    }
+    var batteryMessage by remember { mutableStateOf<String?>(null) }
     var showClearDialog by remember { mutableStateOf(false) }
     var testMessage by remember { mutableStateOf<String?>(null) }
     var retentionExpanded by remember { mutableStateOf(false) }
@@ -70,6 +74,7 @@ fun SettingsScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 accessEnabled = NotificationAccessHelper.isNotificationAccessEnabled(context)
+                batteryUnrestricted = NotificationAccessHelper.isIgnoringBatteryOptimizations(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -123,6 +128,46 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Open Android settings")
+                }
+            }
+
+            HorizontalDivider()
+
+            SettingsSection(title = "Background") {
+                Text(
+                    text = if (batteryUnrestricted) {
+                        "Battery optimization: Unrestricted"
+                    } else {
+                        "Battery optimization: Optimized"
+                    },
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Text(
+                    text = "Monitoring keeps running after you leave the app. A silent status notification holds the process open. Unrestricted battery use makes that more reliable on this device. Choose what to republish on the Republish tab.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
+                    onClick = {
+                        try {
+                            context.startActivity(
+                                NotificationAccessHelper.openBatteryOptimizationSettings()
+                            )
+                            batteryMessage = null
+                        } catch (_: Exception) {
+                            batteryMessage = "Battery settings are not available on this device."
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Open battery optimization settings")
+                }
+                batteryMessage?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 

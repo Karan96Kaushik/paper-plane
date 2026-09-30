@@ -1,14 +1,18 @@
 package com.example.notificationmonitor.notification
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
+import android.app.PendingIntent
 import android.app.NotificationManager as AndroidNotificationManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.example.notificationmonitor.MainActivity
 import com.example.notificationmonitor.R
 
 /**
@@ -16,22 +20,42 @@ import com.example.notificationmonitor.R
  */
 class LocalNotificationManager(
     private val context: Context
-) {
+) : NotificationPoster {
 
     fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(AndroidNotificationManager::class.java) ?: return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            context.getString(R.string.notification_channel_name),
-            AndroidNotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = context.getString(R.string.notification_channel_description)
-        }
-        manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.notification_channel_name),
+                AndroidNotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = context.getString(R.string.notification_channel_description)
+            }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                REPUBLISH_CHANNEL_ID,
+                context.getString(R.string.republish_channel_name),
+                AndroidNotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = context.getString(R.string.republish_channel_description)
+            }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                BACKGROUND_CHANNEL_ID,
+                context.getString(R.string.background_channel_name),
+                AndroidNotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = context.getString(R.string.background_channel_description)
+                setShowBadge(false)
+            }
+        )
     }
 
-    fun canPostNotifications(): Boolean {
+    override fun canPostNotifications(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             return NotificationManagerCompat.from(context).areNotificationsEnabled()
         }
@@ -59,8 +83,77 @@ class LocalNotificationManager(
         return true
     }
 
+    override fun showRepublished(
+        entityId: Long,
+        title: String,
+        message: String,
+        bigText: String?,
+        subText: String?,
+        category: String?
+    ): Boolean {
+        ensureChannel()
+        if (!canPostNotifications()) return false
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationIdFor(entityId),
+            openDetailIntent(entityId),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val builder = NotificationCompat.Builder(context, REPUBLISH_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setSubText(subText)
+            .setCategory(category)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(false)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        if (!bigText.isNullOrBlank()) {
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
+        }
+        NotificationManagerCompat.from(context).notify(notificationIdFor(entityId), builder.build())
+        return true
+    }
+
+    fun buildBackgroundNotification(): Notification {
+        ensureChannel()
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(context, BACKGROUND_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.getString(R.string.background_notification_title))
+            .setContentText(context.getString(R.string.background_notification_text))
+            .setOngoing(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
+    private fun openDetailIntent(entityId: Long): Intent {
+        return Intent(context, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_OPEN_NOTIFICATION_ID, entityId)
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+    }
+
     companion object {
         const val CHANNEL_ID = "notification_monitor"
+        const val REPUBLISH_CHANNEL_ID = "republished_notifications"
+        const val BACKGROUND_CHANNEL_ID = "background_monitor"
         private const val TEST_NOTIFICATION_ID = 1001
+
+        fun notificationIdFor(entityId: Long): Int {
+            val positive = (entityId and 0x7fffffffL).toInt()
+            return 10_000 + (positive % 1_000_000)
+        }
     }
 }

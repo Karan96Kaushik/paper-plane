@@ -7,6 +7,8 @@ import android.util.Log
 import com.example.notificationmonitor.database.AppDatabase
 import com.example.notificationmonitor.database.MonitoredAppEntity
 import com.example.notificationmonitor.database.NotificationEntity
+import com.example.notificationmonitor.database.RepublishRuleEntity
+import com.example.notificationmonitor.notification.NotificationType
 import com.example.notificationmonitor.settings.RetentionPeriod
 import com.example.notificationmonitor.settings.UserPreferences
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +25,7 @@ class NotificationRepository(
 
     private val notificationDao = database.notificationDao()
     private val monitoredAppDao = database.monitoredAppDao()
+    private val republishRuleDao = database.republishRuleDao()
 
     fun observeNotifications(limit: Int = DEFAULT_LIMIT): Flow<List<NotificationEntity>> =
         notificationDao.observeNotifications(limit)
@@ -32,6 +35,22 @@ class NotificationRepository(
         limit: Int = DEFAULT_LIMIT
     ): Flow<List<NotificationEntity>> =
         notificationDao.observeNotificationsByPackage(packageName, limit)
+
+    fun observeHistory(
+        packageName: String?,
+        type: NotificationType?,
+        limit: Int = DEFAULT_LIMIT
+    ): Flow<List<NotificationEntity>> {
+        val base = if (packageName == null) {
+            notificationDao.observeNotifications(limit)
+        } else {
+            notificationDao.observeNotificationsByPackage(packageName, limit)
+        }
+        if (type == null) return base
+        return base.map { items ->
+            items.filter { NotificationType.fromCategory(it.category) == type }
+        }
+    }
 
     fun observeNotification(id: Long): Flow<NotificationEntity?> =
         notificationDao.observeById(id)
@@ -63,17 +82,16 @@ class NotificationRepository(
     fun observeRetentionPeriod(): Flow<RetentionPeriod> =
         preferences.retentionPeriod
 
-    suspend fun insertIfAllowed(notification: NotificationEntity): Boolean {
+    suspend fun insertIfAllowed(notification: NotificationEntity): Long? {
         return try {
             if (!isPackageEnabled(notification.packageName)) {
-                return false
+                return null
             }
             ensureAppTracked(notification.packageName, notification.appName)
             notificationDao.insert(notification)
-            true
         } catch (error: Exception) {
             Log.e(TAG, "Failed to persist notification for package=${notification.packageName}", error)
-            false
+            null
         }
     }
 
@@ -101,6 +119,64 @@ class NotificationRepository(
     suspend fun setRetentionPeriod(period: RetentionPeriod) {
         preferences.setRetentionPeriod(period)
     }
+
+    fun observeAutoRepublishEnabled(): Flow<Boolean> = preferences.autoRepublishEnabled
+
+    suspend fun setAutoRepublishEnabled(enabled: Boolean) {
+        preferences.setAutoRepublishEnabled(enabled)
+    }
+
+    suspend fun isAutoRepublishEnabled(): Boolean = preferences.isAutoRepublishEnabled()
+
+    fun observeRepublishRules(): Flow<List<RepublishRuleEntity>> = republishRuleDao.observeAll()
+
+    fun observeRepublishRule(packageName: String): Flow<RepublishRuleEntity?> =
+        republishRuleDao.observeByPackage(packageName)
+
+    fun observeRepublishEnabledAppCount(): Flow<Int> = republishRuleDao.observeEnabledCount()
+
+    suspend fun getRepublishRule(packageName: String): RepublishRuleEntity? =
+        republishRuleDao.getByPackage(packageName)
+
+    suspend fun getEnabledRepublishRules(): List<RepublishRuleEntity> =
+        republishRuleDao.getEnabled()
+
+    suspend fun saveRepublishRule(rule: RepublishRuleEntity) {
+        republishRuleDao.upsert(rule)
+    }
+
+    suspend fun setRepublishEnabled(packageName: String, enabled: Boolean) {
+        val existing = republishRuleDao.getByPackage(packageName)
+            ?: RepublishRuleEntity(packageName = packageName)
+        val noTypes = !existing.allTypes && existing.categoriesCsv.isBlank()
+        republishRuleDao.upsert(
+            existing.copy(
+                enabled = enabled,
+                allTypes = if (enabled && noTypes) true else existing.allTypes
+            )
+        )
+    }
+
+    suspend fun setRepublishEnabledForPackages(packageNames: List<String>, enabled: Boolean) {
+        packageNames.forEach { packageName ->
+            setRepublishEnabled(packageName, enabled)
+        }
+    }
+
+    suspend fun recentByPackage(packageName: String, limit: Int): List<NotificationEntity> =
+        notificationDao.getRecentByPackage(packageName, limit)
+
+    suspend fun getByIds(ids: List<Long>): List<NotificationEntity> {
+        if (ids.isEmpty()) return emptyList()
+        return notificationDao.getByIds(ids)
+    }
+
+    suspend fun markRepublished(id: Long, republishedAt: Long) {
+        notificationDao.markRepublished(id, republishedAt)
+    }
+
+    suspend fun countRepublishedKeySince(notificationKey: String, since: Long): Int =
+        notificationDao.countRepublishedKeySince(notificationKey, since)
 
     suspend fun isPackageEnabled(packageName: String): Boolean {
         val stored = monitoredAppDao.isEnabled(packageName)
@@ -159,12 +235,14 @@ class NotificationRepository(
         return combine(
             observeCountToday(),
             observeEnabledAppCount(),
-            observeLatestNotification()
-        ) { today, enabledApps, latest ->
+            observeLatestNotification(),
+            observeRepublishEnabledAppCount()
+        ) { today, enabledApps, latest, republishApps ->
             HomeStats(
                 notificationsToday = today,
                 monitoredApps = enabledApps,
-                latest = latest
+                latest = latest,
+                republishApps = republishApps
             )
         }
     }
@@ -172,7 +250,8 @@ class NotificationRepository(
     data class HomeStats(
         val notificationsToday: Int,
         val monitoredApps: Int,
-        val latest: NotificationEntity?
+        val latest: NotificationEntity?,
+        val republishApps: Int = 0
     )
 
     companion object {

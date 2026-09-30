@@ -1,7 +1,9 @@
 package com.example.notificationmonitor
 
 import android.app.Application
+import com.example.notificationmonitor.notification.BackgroundMonitor
 import com.example.notificationmonitor.notification.LocalNotificationManager
+import com.example.notificationmonitor.notification.NotificationRepublisher
 import com.example.notificationmonitor.repository.NotificationRepository
 import com.example.notificationmonitor.work.RetentionCleanupWorker
 import kotlinx.coroutines.CoroutineScope
@@ -19,11 +21,20 @@ class NotificationMonitorApplication : Application() {
     lateinit var localNotificationManager: LocalNotificationManager
         private set
 
+    lateinit var republisher: NotificationRepublisher
+        private set
+
     override fun onCreate() {
         super.onCreate()
         repository = NotificationRepository.getInstance(this)
         localNotificationManager = LocalNotificationManager(this)
         localNotificationManager.ensureChannel()
+        republisher = NotificationRepublisher(
+            repository = repository,
+            poster = localNotificationManager
+        )
+        BackgroundMonitor.ensureRunning(this)
+        BackgroundMonitor.rebindListener(this)
         RetentionCleanupWorker.schedule(this)
 
         applicationScope.launch {

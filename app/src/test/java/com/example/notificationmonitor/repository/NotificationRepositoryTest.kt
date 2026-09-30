@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,7 +47,7 @@ class NotificationRepositoryTest {
     @Test
     fun insertAndRetrieve() = runTest {
         val entity = sampleNotification(packageName = "com.whatsapp", title = "John")
-        assertTrue(repository.insertIfAllowed(entity))
+        assertNotNull(repository.insertIfAllowed(entity))
 
         val items = repository.observeNotifications().first()
         assertEquals(1, items.size)
@@ -105,7 +105,7 @@ class NotificationRepositoryTest {
         val stored = repository.insertIfAllowed(
             sampleNotification(packageName = "com.slack", title = "Ignored")
         )
-        assertFalse(stored)
+        assertNull(stored)
         assertEquals(0, repository.observeCount().first())
     }
 
@@ -117,8 +117,30 @@ class NotificationRepositoryTest {
         val stored = repository.insertIfAllowed(
             sampleNotification(packageName = "com.gmail", title = "Mail")
         )
-        assertTrue(stored)
+        assertNotNull(stored)
         assertEquals(1, repository.observeCount().first())
+    }
+
+    @Test
+    fun republishRuleAndMarkRepublished() = runTest {
+        repository.saveRepublishRule(
+            com.example.notificationmonitor.database.RepublishRuleEntity(
+                packageName = "com.whatsapp",
+                enabled = true,
+                allTypes = false,
+                categoriesCsv = "msg,email",
+                includeOngoing = false
+            )
+        )
+        val rule = repository.getRepublishRule("com.whatsapp")
+        assertEquals(true, rule?.enabled)
+        assertEquals(setOf("msg", "email"), rule?.selectedTypes()?.map { it.storageKey }?.toSet())
+
+        val id = repository.insertIfAllowed(sampleNotification(packageName = "com.whatsapp"))
+        assertNotNull(id)
+        repository.markRepublished(id!!, 1234L)
+        assertEquals(1234L, repository.observeNotification(id).first()?.republishedAt)
+        assertEquals(1, repository.countRepublishedKeySince("key-1", 1000L))
     }
 
     private fun sampleNotification(

@@ -70,4 +70,30 @@ interface NotificationDao {
 
     @Query("DELETE FROM notifications WHERE postedAt < :timestamp")
     suspend fun deleteOlderThan(timestamp: Long): Int
+
+    @Query("UPDATE notifications SET republishedAt = :republishedAt WHERE id = :id")
+    suspend fun markRepublished(id: Long, republishedAt: Long)
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM notifications
+        WHERE notificationKey = :notificationKey
+          AND republishedAt IS NOT NULL
+          AND republishedAt >= :since
+        """
+    )
+    suspend fun countRepublishedKeySince(notificationKey: String, since: Long): Int
+
+    @Query(
+        """
+        SELECT * FROM notifications
+        WHERE packageName = :packageName
+        ORDER BY postedAt DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun getRecentByPackage(packageName: String, limit: Int): List<NotificationEntity>
+
+    @Query("SELECT * FROM notifications WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<NotificationEntity>
 }

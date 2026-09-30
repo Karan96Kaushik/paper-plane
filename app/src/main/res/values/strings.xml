@@ -5,4 +5,10 @@
     <string name="notification_channel_description">Local notifications from Notification Monitor</string>
     <string name="test_notification_title">Notification Monitor</string>
     <string name="test_notification_message">Test notification</string>
+    <string name="republish_channel_name">Republished notifications</string>
+    <string name="republish_channel_description">Copies of notifications you chose to republish</string>
+    <string name="background_channel_name">Background monitoring</string>
+    <string name="background_channel_description">Keeps notification monitoring running in the background</string>
+    <string name="background_notification_title">Notification Monitor is running</string>
+    <string name="background_notification_text">Reading new notifications and republishing the ones you selected.</string>
 </resources>

@@ -93,8 +93,18 @@ fun HomeScreen(
                 }
             }
 
+            StatusBlock(
+                label = "Background monitoring",
+                value = if (accessEnabled) "Running" else "Waiting for notification access"
+            )
+            Text(
+                text = "New notifications are read while notification access is on, including when this screen is closed.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             StatusBlock(label = "Notifications today", value = stats.notificationsToday.toString())
             StatusBlock(label = "Monitored apps", value = stats.monitoredApps.toString())
+            StatusBlock(label = "Republish apps", value = stats.republishApps.toString())
 
             Text(
                 text = "Latest notification",

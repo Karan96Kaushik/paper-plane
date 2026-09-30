@@ -1,0 +1,21 @@
+package com.example.notificationmonitor.notification
+
+import com.example.notificationmonitor.database.NotificationEntity
+import com.example.notificationmonitor.database.RepublishRuleEntity
+
+object RepublishMatcher {
+
+    fun matches(
+        notification: NotificationEntity,
+        rule: RepublishRuleEntity,
+        requireEnabled: Boolean
+    ): Boolean {
+        if (notification.packageName != rule.packageName) return false
+        if (requireEnabled && !rule.enabled) return false
+        if (notification.isOngoing && !rule.includeOngoing) return false
+        if (rule.allTypes) return true
+        val selected = rule.selectedTypes()
+        if (selected.isEmpty()) return false
+        return NotificationType.fromCategory(notification.category) in selected
+    }
+}

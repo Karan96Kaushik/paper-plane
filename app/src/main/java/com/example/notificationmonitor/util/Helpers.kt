@@ -3,6 +3,7 @@ package com.example.notificationmonitor.util
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
 import android.provider.Settings
 import android.text.TextUtils
 import com.example.notificationmonitor.notification.NotificationListener
@@ -37,6 +38,14 @@ object NotificationAccessHelper {
 
     fun openNotificationListenerSettings(): Intent =
         Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+
+    fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+        val powerManager = context.getSystemService(PowerManager::class.java) ?: return false
+        return powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    fun openBatteryOptimizationSettings(): Intent =
+        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
 }
 
 object TimeFormatter {
