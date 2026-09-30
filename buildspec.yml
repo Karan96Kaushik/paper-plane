@@ -1,0 +1,72 @@
+version: 0.2
+
+env:
+  variables:
+    ANDROID_HOME: /usr/local/android-sdk
+    JAVA_HOME: /usr/lib/jvm/java-17-amazon-corretto
+    # Pin versions used by this project
+    ANDROID_COMPILE_SDK: "35"
+    ANDROID_BUILD_TOOLS: "35.0.0"
+    ANDROID_PLATFORM: "android-35"
+  parameter-store: {}
+  # Optional signing secrets (wire to Secrets Manager / Parameter Store in the CodeBuild project):
+  # KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+  # Optionally base64-decode a keystore into KEYSTORE_FILE during pre_build.
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto17
+    commands:
+      - echo "Installing Android SDK command-line tools"
+      - yum install -y unzip wget || apt-get update && apt-get install -y unzip wget
+      - mkdir -p $ANDROID_HOME/cmdline-tools
+      - |
+        if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools
+          mkdir -p $ANDROID_HOME/cmdline-tools/latest
+          mv /tmp/cmdline-tools/cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/
+        fi
+      - export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+      - yes | sdkmanager --licenses >/dev/null || true
+      - sdkmanager "platform-tools" "platforms;$ANDROID_PLATFORM" "build-tools;$ANDROID_BUILD_TOOLS"
+
+  pre_build:
+    commands:
+      - echo "Preparing release signing (optional)"
+      - chmod +x ./gradlew
+      - |
+        if [ -n "${KEYSTORE_BASE64:-}" ]; then
+          echo "$KEYSTORE_BASE64" | base64 -d > /tmp/release.keystore
+          export KEYSTORE_FILE=/tmp/release.keystore
+          echo "Decoded keystore to $KEYSTORE_FILE"
+        fi
+      - java -version
+      - echo "ANDROID_HOME=$ANDROID_HOME"
+
+  build:
+    commands:
+      - echo "Building release APK"
+      - ./gradlew assembleRelease --no-daemon --stacktrace
+      - echo "Building release AAB"
+      - ./gradlew bundleRelease --no-daemon --stacktrace
+
+  post_build:
+    commands:
+      - echo "Build completed on $(date)"
+      - ls -la app/build/outputs/apk/release/ || true
+      - ls -la app/build/outputs/bundle/release/ || true
+
+artifacts:
+  files:
+    - app/build/outputs/apk/release/*.apk
+    - app/build/outputs/bundle/release/*.aab
+  name: notification-monitor-$(date +%Y%m%d-%H%M%S)
+  discard-paths: no
+
+cache:
+  paths:
+    - '/root/.gradle/caches/**/*'
+    - '/root/.gradle/wrapper/**/*'
+    - '/usr/local/android-sdk/**/*'

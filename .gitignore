@@ -1,0 +1,39 @@
+# Built application files
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Generated files
+bin/
+gen/
+out/
+build/
+.gradle/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+.DS_Store
+
+# Signing
+*.jks
+*.keystore
+!debug.keystore
+
+# Kotlin
+.kotlin/
+
+# Logs
+*.log
+
+# Secrets
+secrets/
+.env
+.env.*
