@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NotificationMonitor"
+rootProject.name = "PaperPlane"
 include(":app")

@@ -94,6 +94,9 @@ interface NotificationDao {
     )
     suspend fun getRecentByPackage(packageName: String, limit: Int): List<NotificationEntity>
 
+    @Query("SELECT * FROM notifications ORDER BY postedAt DESC LIMIT :limit")
+    suspend fun getRecent(limit: Int): List<NotificationEntity>
+
     @Query("SELECT * FROM notifications WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<Long>): List<NotificationEntity>
 }

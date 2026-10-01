@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.notificationmonitor.database.AppDatabase
 import com.example.notificationmonitor.database.NotificationEntity
 import com.example.notificationmonitor.database.RepublishRuleEntity
+import com.example.notificationmonitor.database.WorkflowEntity
 import com.example.notificationmonitor.repository.NotificationRepository
 import com.example.notificationmonitor.settings.UserPreferences
 import kotlinx.coroutines.test.runTest
@@ -79,6 +80,42 @@ class NotificationRepublisherTest {
         now += 1_001L
         republisher.onNewNotification(sample(key = "same", title = "Update", postedAt = 2L).copy(id = second))
         assertEquals(listOf(first, second), poster.ids)
+    }
+
+    @Test
+    fun skipWorkflowStopsAutomaticRepublish() = runTest {
+        repository.saveWorkflow(
+            WorkflowEntity(
+                name = "Skip greetings",
+                enabled = true,
+                packageName = "com.chat",
+                allTypes = true,
+                pattern = "Hello",
+                action = WorkflowAction.SKIP.name
+            )
+        )
+        val id = insert(sample(key = "greet"))
+        republisher.onNewNotification(sample(key = "greet").copy(id = id))
+        assertTrue(poster.ids.isEmpty())
+    }
+
+    @Test
+    fun republishWorkflowAddsTitlePrefix() = runTest {
+        val id = insert(sample(title = "Invoice", category = "email", key = "bill"))
+        repository.saveWorkflow(
+            WorkflowEntity(
+                name = "Bills",
+                enabled = true,
+                packageName = "com.chat",
+                allTypes = true,
+                pattern = "invoice",
+                titlePrefix = "Work"
+            )
+        )
+        republisher.onNewNotification(
+            sample(title = "Invoice", category = "email", key = "bill").copy(id = id)
+        )
+        assertEquals(listOf("Work Invoice"), poster.titles)
     }
 
     @Test
@@ -174,6 +211,7 @@ class NotificationRepublisherTest {
 
     private class FakePoster : NotificationPoster {
         val ids = mutableListOf<Long>()
+        val titles = mutableListOf<String>()
         var allow = true
 
         override fun canPostNotifications(): Boolean = allow
@@ -188,6 +226,7 @@ class NotificationRepublisherTest {
         ): Boolean {
             if (!allow) return false
             ids += entityId
+            titles += title
             return true
         }
     }

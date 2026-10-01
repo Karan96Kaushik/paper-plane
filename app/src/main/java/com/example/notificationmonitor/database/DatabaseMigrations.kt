@@ -29,4 +29,28 @@ object DatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `workflows` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `enabled` INTEGER NOT NULL,
+                    `packageName` TEXT NOT NULL,
+                    `allTypes` INTEGER NOT NULL,
+                    `categoriesCsv` TEXT NOT NULL,
+                    `includeOngoing` INTEGER NOT NULL,
+                    `matchField` TEXT NOT NULL,
+                    `matchMode` TEXT NOT NULL,
+                    `pattern` TEXT NOT NULL,
+                    `caseSensitive` INTEGER NOT NULL,
+                    `action` TEXT NOT NULL,
+                    `titlePrefix` TEXT NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
+    }
 }

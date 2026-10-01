@@ -36,6 +36,8 @@ phases:
       - export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
       - echo "sdk.dir=$ANDROID_HOME" > local.properties
       - chmod +x ./gradlew
+      - git fetch --tags --force || echo "Could not fetch git tags; Semver uses the tags already in the checkout"
+      - git fetch --unshallow || echo "Git history is already complete, or this checkout cannot be unshallowed"
       - |
         if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
           echo "Decoding release keystore"
@@ -49,6 +51,9 @@ phases:
     commands:
       - export ANDROID_HOME="$HOME/android-sdk"
       - export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+      - echo "Resolving Semver"
+      - ./gradlew --no-daemon -p buildSrc test
+      - ./gradlew --no-daemon printVersion
       - echo "Running unit tests"
       - ./gradlew --no-daemon test
       - echo "Building debug APK"

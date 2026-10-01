@@ -1,6 +1,7 @@
 package com.example.notificationmonitor.notification
 
 import com.example.notificationmonitor.database.NotificationEntity
+import com.example.notificationmonitor.database.WorkflowEntity
 import com.example.notificationmonitor.repository.NotificationRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -18,8 +19,13 @@ class NotificationRepublisher(
 
     suspend fun onNewNotification(entity: NotificationEntity) {
         if (!repository.isAutoRepublishEnabled()) return
-        val rule = repository.getRepublishRule(entity.packageName) ?: return
-        if (!RepublishMatcher.matches(entity, rule, requireEnabled = true)) return
+        val rule = repository.getRepublishRule(entity.packageName)
+        val plan = WorkflowEngine.decide(
+            notification = entity,
+            appRule = rule,
+            workflows = repository.getEnabledWorkflows()
+        )
+        if (!plan.republish) return
         val key = entity.notificationKey
         if (!key.isNullOrBlank()) {
             val since = clock() - dedupeWindowMillis
@@ -28,7 +34,8 @@ class NotificationRepublisher(
         postAll(
             items = listOf(entity),
             skipAlreadyRepublished = false,
-            applyLimit = false
+            applyLimit = false,
+            titlePrefix = plan.titlePrefix
         )
     }
 
@@ -49,16 +56,53 @@ class NotificationRepublisher(
     suspend fun republishPastForEnabledApps(
         includeAlreadyRepublished: Boolean
     ): RepublishBatchResult = withContext(dispatcher) {
-        val matched = repository.getEnabledRepublishRules()
-            .flatMap { rule ->
-                repository.recentByPackage(rule.packageName, scanLimit)
-                    .filter { RepublishMatcher.matches(it, rule, requireEnabled = true) }
+        val workflows = repository.getEnabledWorkflows()
+        val rules = repository.getEnabledRepublishRules().associateBy { it.packageName }
+        val matched = repository.recentNotifications(scanLimit)
+            .mapNotNull { notification ->
+                val plan = WorkflowEngine.decide(
+                    notification = notification,
+                    appRule = rules[notification.packageName],
+                    workflows = workflows
+                )
+                if (!plan.republish) null else notification to plan.titlePrefix
             }
-            .sortedByDescending { it.postedAt }
+            .sortedByDescending { it.first.postedAt }
+        val prefixById = matched.associate { it.first.id to it.second }
+        postAll(
+            items = matched.map { it.first },
+            skipAlreadyRepublished = !includeAlreadyRepublished,
+            applyLimit = true,
+            titlePrefixFor = { prefixById[it.id].orEmpty() }
+        )
+    }
+
+    suspend fun runWorkflow(
+        workflowId: Long,
+        includeAlreadyRepublished: Boolean
+    ): RepublishBatchResult = withContext(dispatcher) {
+        val workflow = repository.getWorkflow(workflowId) ?: return@withContext RepublishBatchResult()
+        runWorkflow(workflow, includeAlreadyRepublished)
+    }
+
+    suspend fun runWorkflow(
+        workflow: WorkflowEntity,
+        includeAlreadyRepublished: Boolean
+    ): RepublishBatchResult = withContext(dispatcher) {
+        if (workflow.action() == WorkflowAction.SKIP) {
+            return@withContext RepublishBatchResult(blockedByWorkflow = true)
+        }
+        val source = if (workflow.packageName.isBlank()) {
+            repository.recentNotifications(scanLimit)
+        } else {
+            repository.recentByPackage(workflow.packageName, scanLimit)
+        }
+        val matched = source.filter { WorkflowEngine.matches(it, workflow) }
         postAll(
             items = matched,
             skipAlreadyRepublished = !includeAlreadyRepublished,
-            applyLimit = true
+            applyLimit = true,
+            titlePrefix = workflow.titlePrefix
         )
     }
 
@@ -77,7 +121,9 @@ class NotificationRepublisher(
     private suspend fun postAll(
         items: List<NotificationEntity>,
         skipAlreadyRepublished: Boolean,
-        applyLimit: Boolean
+        applyLimit: Boolean,
+        titlePrefix: String = "",
+        titlePrefixFor: (NotificationEntity) -> String = { titlePrefix }
     ): RepublishBatchResult {
         var skippedAlready = 0
         var skippedEmpty = 0
@@ -87,7 +133,7 @@ class NotificationRepublisher(
                 skippedAlready++
                 continue
             }
-            val content = RepublishContent.from(item)
+            val content = RepublishContent.from(item)?.withTitlePrefix(titlePrefixFor(item))
             if (content == null) {
                 skippedEmpty++
                 continue
@@ -157,9 +203,13 @@ data class RepublishBatchResult(
     val skippedAlready: Int = 0,
     val skippedEmpty: Int = 0,
     val notPostedDueToLimit: Int = 0,
-    val permissionDenied: Boolean = false
+    val permissionDenied: Boolean = false,
+    val blockedByWorkflow: Boolean = false
 ) {
     fun userMessage(): String {
+        if (blockedByWorkflow) {
+            return "This workflow keeps matching notifications from being republished."
+        }
         if (permissionDenied && posted == 0) {
             return "Cannot post notifications. Grant notification permission in system settings."
         }

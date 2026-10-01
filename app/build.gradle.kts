@@ -1,3 +1,5 @@
+import com.paperplane.build.Semver
+import com.paperplane.build.SemverResolver
 import java.util.Properties
 
 plugins {
@@ -17,6 +19,94 @@ val localProperties = Properties().apply {
 fun prop(name: String, default: String): String =
     (project.findProperty(name) as String?) ?: default
 
+fun git(vararg args: String): Pair<Int, String> {
+    return try {
+        val process = ProcessBuilder(listOf("git") + args.toList())
+            .directory(rootProject.projectDir)
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
+            .start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        process.waitFor() to output
+    } catch (_: Exception) {
+        -1 to ""
+    }
+}
+
+fun gitOutput(vararg args: String): String? {
+    val (code, output) = git(*args)
+    return if (code == 0) output.trim() else null
+}
+
+fun configuredVersion(propertyName: String, envName: String): String? {
+    val property = (project.findProperty(propertyName) as String?)?.trim()?.takeIf { it.isNotEmpty() }
+    val env = System.getenv(envName)?.trim()?.takeIf { it.isNotEmpty() }
+    return property ?: env
+}
+
+fun resolveAppVersion(): com.paperplane.build.ResolvedVersion {
+    val nameOverride = configuredVersion("paperplane.versionName", "PAPERPLANE_VERSION_NAME")
+    val codeOverride = configuredVersion("paperplane.versionCode", "PAPERPLANE_VERSION_CODE")?.toIntOrNull()
+
+    if (!rootProject.file(".git").exists()) {
+        logger.warn("No git metadata; PaperPlane version falls back to 1.0.0")
+        return SemverResolver.resolve(
+            base = null,
+            headIsRelease = false,
+            commitMessages = emptyList(),
+            distance = 0,
+            commitCount = 1,
+            versionNameOverride = nameOverride,
+            versionCodeOverride = codeOverride
+        )
+    }
+
+    if (gitOutput("rev-parse", "--is-shallow-repository") == "true") {
+        logger.warn("Shallow git checkout. Fetch the full history and tags so Semver and versionCode stay correct.")
+    }
+
+    val head = gitOutput("rev-parse", "HEAD")
+    val commitCount = gitOutput("rev-list", "--count", "HEAD")?.toIntOrNull() ?: 0
+    val mergedTags = gitOutput("tag", "--merged", "HEAD")
+        ?.lineSequence()
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?.toList()
+        .orEmpty()
+    val baseName = SemverResolver.highestStableTag(mergedTags)
+    val base = baseName?.let(Semver::parseTag)
+    val baseCommit = baseName?.let { gitOutput("rev-list", "-n", "1", it) }
+    val headIsRelease = !head.isNullOrBlank() && head == baseCommit
+    val distance = when {
+        baseName == null -> commitCount
+        headIsRelease -> 0
+        else -> gitOutput("rev-list", "--count", "$baseName..HEAD")?.toIntOrNull() ?: 0
+    }
+    val rawLog = when {
+        headIsRelease || head.isNullOrBlank() -> null
+        baseName == null -> gitOutput("log", "--format=%x1e%B")
+        else -> gitOutput("log", "$baseName..HEAD", "--format=%x1e%B")
+    }
+    val messages = rawLog
+        ?.split('\u001e')
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        .orEmpty()
+
+    return SemverResolver.resolve(
+        base = base,
+        headIsRelease = headIsRelease,
+        commitMessages = messages,
+        distance = distance,
+        commitCount = commitCount,
+        versionNameOverride = nameOverride,
+        versionCodeOverride = codeOverride
+    ).also { resolved ->
+        logger.lifecycle("PaperPlane version ${resolved.name} (${resolved.code})")
+    }
+}
+
+val resolvedVersion = resolveAppVersion()
+
 android {
     namespace = "com.example.notificationmonitor"
     compileSdk = prop("compileSdkVersion", "35").toInt()
@@ -26,8 +116,8 @@ android {
         applicationId = "com.example.notificationmonitor"
         minSdk = prop("minSdkVersion", "26").toInt()
         targetSdk = prop("targetSdkVersion", "35").toInt()
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = resolvedVersion.code
+        versionName = resolvedVersion.name
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -95,6 +185,15 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+}
+
+tasks.register("printVersion") {
+    group = "versioning"
+    description = "Prints the Semver versionName and versionCode for this build."
+    doLast {
+        println("versionName=${resolvedVersion.name}")
+        println("versionCode=${resolvedVersion.code}")
     }
 }
 

@@ -1,4 +1,4 @@
-# Native Android Notification Monitor
+# PaperPlane
 
 ## 1. Objective
 
@@ -542,7 +542,7 @@ Pressing it should generate a local notification from this app.
 Example:
 
 ```text
-Notification Monitor
+PaperPlane
 
 Test notification
 ```
@@ -571,7 +571,7 @@ Settings
 Show:
 
 ```text
-Notification Monitor
+PaperPlane
 
 Notification Access
 ● Enabled
@@ -1089,7 +1089,7 @@ Explain:
 Settings
 → Apps / Special app access
 → Notification access
-→ Notification Monitor
+→ PaperPlane
 → Enable
 ```
 

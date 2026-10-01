@@ -12,6 +12,10 @@ sealed class Screen(val route: String, val label: String) {
     data object RepublishApp : Screen("republish_app/{packageName}", "App republish") {
         fun createRoute(packageName: String) = "republish_app/${android.net.Uri.encode(packageName)}"
     }
+    data object Workflows : Screen("workflows", "Workflows")
+    data object WorkflowEdit : Screen("workflow/{workflowId}", "Workflow") {
+        fun createRoute(id: Long) = "workflow/$id"
+    }
 
     companion object {
         val bottomNavItems = listOf(Home, History, Apps, Republish, Settings)

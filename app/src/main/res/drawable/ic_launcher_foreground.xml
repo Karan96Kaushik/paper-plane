@@ -4,10 +4,20 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,34h48c2.2,0 4,1.8 4,4v32c0,2.2 -1.8,4 -4,4H30c-2.2,0 -4,-1.8 -4,-4V38c0,-2.2 1.8,-4 4,-4z" />
-    <path
-        android:fillColor="#1565C0"
-        android:pathData="M34,42h40v6H34zM34,54h28v6H34zM34,66h20v6H34z" />
+    <!-- Pivot stays on the plane center, then the group moves that center to the icon center. -->
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="-38"
+        android:scaleX="2.6"
+        android:scaleY="2.6"
+        android:translateX="42"
+        android:translateY="42">
+        <path
+            android:fillColor="#D6E4FF"
+            android:pathData="M22,12.1 L10.8,12.4 L4.8,20.6 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M22,11.6 L2.4,6.4 L10.8,12.4 Z" />
+    </group>
 </vector>

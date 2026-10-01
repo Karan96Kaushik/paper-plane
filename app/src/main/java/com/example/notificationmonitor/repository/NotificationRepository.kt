@@ -8,6 +8,7 @@ import com.example.notificationmonitor.database.AppDatabase
 import com.example.notificationmonitor.database.MonitoredAppEntity
 import com.example.notificationmonitor.database.NotificationEntity
 import com.example.notificationmonitor.database.RepublishRuleEntity
+import com.example.notificationmonitor.database.WorkflowEntity
 import com.example.notificationmonitor.notification.NotificationType
 import com.example.notificationmonitor.settings.RetentionPeriod
 import com.example.notificationmonitor.settings.UserPreferences
@@ -26,6 +27,7 @@ class NotificationRepository(
     private val notificationDao = database.notificationDao()
     private val monitoredAppDao = database.monitoredAppDao()
     private val republishRuleDao = database.republishRuleDao()
+    private val workflowDao = database.workflowDao()
 
     fun observeNotifications(limit: Int = DEFAULT_LIMIT): Flow<List<NotificationEntity>> =
         notificationDao.observeNotifications(limit)
@@ -165,6 +167,28 @@ class NotificationRepository(
 
     suspend fun recentByPackage(packageName: String, limit: Int): List<NotificationEntity> =
         notificationDao.getRecentByPackage(packageName, limit)
+
+    suspend fun recentNotifications(limit: Int): List<NotificationEntity> =
+        notificationDao.getRecent(limit)
+
+    fun observeWorkflows(): Flow<List<WorkflowEntity>> = workflowDao.observeAll()
+
+    fun observeWorkflow(id: Long): Flow<WorkflowEntity?> = workflowDao.observeById(id)
+
+    suspend fun getWorkflow(id: Long): WorkflowEntity? = workflowDao.getById(id)
+
+    suspend fun getEnabledWorkflows(): List<WorkflowEntity> = workflowDao.getEnabled()
+
+    suspend fun saveWorkflow(workflow: WorkflowEntity): Long = workflowDao.upsert(workflow)
+
+    suspend fun deleteWorkflow(id: Long) {
+        workflowDao.delete(id)
+    }
+
+    suspend fun setWorkflowEnabled(id: Long, enabled: Boolean) {
+        val existing = workflowDao.getById(id) ?: return
+        workflowDao.upsert(existing.copy(enabled = enabled))
+    }
 
     suspend fun getByIds(ids: List<Long>): List<NotificationEntity> {
         if (ids.isEmpty()) return emptyList()

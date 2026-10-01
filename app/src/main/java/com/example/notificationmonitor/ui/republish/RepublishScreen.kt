@@ -44,7 +44,8 @@ import kotlinx.coroutines.launch
 fun RepublishScreen(
     repository: NotificationRepository,
     republisher: NotificationRepublisher,
-    onOpenApp: (String) -> Unit
+    onOpenApp: (String) -> Unit,
+    onOpenWorkflows: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -89,10 +90,18 @@ fun RepublishScreen(
         ) {
             item {
                 Text(
-                    text = "Choose which apps and notification types are posted again. New matches are republished in the background while notification access stays on.",
+                    text = "Choose which apps and notification types are posted again. Workflows can also match notification text and republish it, or keep a match from being republished.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            item {
+                OutlinedButton(
+                    onClick = onOpenWorkflows,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Workflows")
+                }
             }
             item {
                 Row(

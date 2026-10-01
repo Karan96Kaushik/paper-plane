@@ -9,9 +9,10 @@ import androidx.room.RoomDatabase
     entities = [
         NotificationEntity::class,
         MonitoredAppEntity::class,
-        RepublishRuleEntity::class
+        RepublishRuleEntity::class,
+        WorkflowEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -19,6 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun notificationDao(): NotificationDao
     abstract fun monitoredAppDao(): MonitoredAppDao
     abstract fun republishRuleDao(): RepublishRuleDao
+    abstract fun workflowDao(): WorkflowDao
 
     companion object {
         @Volatile
@@ -31,7 +33,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "notification_monitor.db"
                 )
-                    .addMigrations(DatabaseMigrations.MIGRATION_1_2)
+                    .addMigrations(
+                        DatabaseMigrations.MIGRATION_1_2,
+                        DatabaseMigrations.MIGRATION_2_3
+                    )
                     .build()
                     .also { instance = it }
             }

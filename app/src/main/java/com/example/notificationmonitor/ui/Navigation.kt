@@ -33,6 +33,8 @@ import com.example.notificationmonitor.ui.history.NotificationDetailScreen
 import com.example.notificationmonitor.ui.home.HomeScreen
 import com.example.notificationmonitor.ui.republish.AppRepublishScreen
 import com.example.notificationmonitor.ui.republish.RepublishScreen
+import com.example.notificationmonitor.ui.republish.WorkflowEditScreen
+import com.example.notificationmonitor.ui.republish.WorkflowListScreen
 import com.example.notificationmonitor.ui.settings.SettingsScreen
 
 @Composable
@@ -109,7 +111,8 @@ fun NotificationMonitorApp(
                     republisher = republisher,
                     onOpenApp = { packageName ->
                         navController.navigate(Screen.RepublishApp.createRoute(packageName))
-                    }
+                    },
+                    onOpenWorkflows = { navController.navigate(Screen.Workflows.route) }
                 )
             }
             composable(Screen.Settings.route) {
@@ -137,6 +140,26 @@ fun NotificationMonitorApp(
                 val packageName = entry.arguments?.getString("packageName") ?: return@composable
                 AppRepublishScreen(
                     packageName = packageName,
+                    repository = repository,
+                    republisher = republisher,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Workflows.route) {
+                WorkflowListScreen(
+                    repository = repository,
+                    onBack = { navController.popBackStack() },
+                    onCreate = { navController.navigate(Screen.WorkflowEdit.createRoute(0)) },
+                    onOpen = { id -> navController.navigate(Screen.WorkflowEdit.createRoute(id)) }
+                )
+            }
+            composable(
+                route = Screen.WorkflowEdit.route,
+                arguments = listOf(navArgument("workflowId") { type = NavType.LongType })
+            ) { entry ->
+                val id = entry.arguments?.getLong("workflowId") ?: return@composable
+                WorkflowEditScreen(
+                    workflowId = id,
                     repository = repository,
                     republisher = republisher,
                     onBack = { navController.popBackStack() }

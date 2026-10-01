@@ -1,4 +1,4 @@
-# Notification Monitor
+# PaperPlane
 
 Native Android app (Kotlin + Jetpack Compose) that monitors notifications from other apps via `NotificationListenerService`, stores them locally with Room, and lets you filter by source app.
 
@@ -19,6 +19,20 @@ All notification content stays on-device. Nothing is uploaded.
 Android Studio is **not** required. Build from the command line.
 
 Set `ANDROID_HOME` (or create `local.properties` with `sdk.dir=...`).
+
+## App version
+
+The Gradle build assigns the SemVer `versionName` and a monotonic `versionCode`. It does not use a checked-in version number.
+
+- The latest stable tag on this commit (`v1.2.3` or `1.2.3`) is the released version.
+- Later commits follow Conventional Commits: `feat` bumps minor, `fix` bumps patch, and `type!` or a `BREAKING CHANGE:` footer bumps major.
+- A commit that is not that tag is a prerelease, for example `1.3.0-dev.4`.
+- `versionCode` is the number of commits on `HEAD`, so it increases with every commit. CI fetches the full history and tags before building.
+- Override one build with `-Ppaperplane.versionName=` and `-Ppaperplane.versionCode=`, or the environment variables `PAPERPLANE_VERSION_NAME` and `PAPERPLANE_VERSION_CODE`.
+
+```bash
+./gradlew printVersion
+```
 
 ## Development build
 
@@ -83,7 +97,7 @@ The app cannot grant notification-listener access itself. After install:
 1. Open **Settings**
 2. **Apps** → **Special app access** (wording varies by OEM)
 3. **Notification access**
-4. Enable **Notification Monitor**
+4. Enable **PaperPlane**
 
 Or use the in-app **Open notification access settings** button (Home / Settings).
 

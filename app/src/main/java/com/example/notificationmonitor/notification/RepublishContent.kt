@@ -8,6 +8,12 @@ data class RepublishContent(
     val bigText: String?,
     val subText: String?
 ) {
+    fun withTitlePrefix(prefix: String): RepublishContent {
+        val trimmed = prefix.trim()
+        if (trimmed.isEmpty()) return this
+        return copy(title = "$trimmed $title")
+    }
+
     companion object {
         fun from(entity: NotificationEntity): RepublishContent? {
             val title = entity.title?.trim()?.takeIf { it.isNotEmpty() }

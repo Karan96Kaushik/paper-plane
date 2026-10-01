@@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -115,7 +116,7 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Text(
-                    text = "Notification Monitor needs notification access to capture events from other apps. Access is granted only in Android system settings.",
+                    text = stringResource(R.string.notification_access_explanation),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
