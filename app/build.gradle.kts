@@ -1,5 +1,5 @@
-import com.paperplane.build.Semver
-import com.paperplane.build.SemverResolver
+import com.paperplane.semver.Semver
+import com.paperplane.semver.SemverResolver
 import java.util.Properties
 
 plugins {
@@ -43,7 +43,7 @@ fun configuredVersion(propertyName: String, envName: String): String? {
     return property ?: env
 }
 
-fun resolveAppVersion(): com.paperplane.build.ResolvedVersion {
+fun resolveAppVersion(): com.paperplane.semver.ResolvedVersion {
     val nameOverride = configuredVersion("paperplane.versionName", "PAPERPLANE_VERSION_NAME")
     val codeOverride = configuredVersion("paperplane.versionCode", "PAPERPLANE_VERSION_CODE")?.toIntOrNull()
 
