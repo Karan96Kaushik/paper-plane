@@ -83,10 +83,23 @@ class SupabasePublisher internal constructor(
         markSynced: suspend (ids: List<Long>) -> Unit
     ): SupabaseOutcome = drainLock.withLock {
         val config = currentConfig()
-        if (!config.enabled) return SupabaseOutcome.Disabled
-        val error = config.validationError()
-        if (error != null) return SupabaseOutcome.Failure(statusCode = null, message = error)
+        if (!config.enabled) {
+            SupabaseOutcome.Disabled
+        } else {
+            val error = config.validationError()
+            if (error != null) {
+                SupabaseOutcome.Failure(statusCode = null, message = error)
+            } else {
+                drainPending(config, loadPage, markSynced)
+            }
+        }
+    }
 
+    private suspend fun drainPending(
+        config: SupabaseConfig,
+        loadPage: suspend (limit: Int) -> List<NotificationEntity>,
+        markSynced: suspend (ids: List<Long>) -> Unit
+    ): SupabaseOutcome {
         var sent = 0
         while (true) {
             val page = loadPage(pageSize)
