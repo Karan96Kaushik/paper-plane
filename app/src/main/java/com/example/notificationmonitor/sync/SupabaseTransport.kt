@@ -72,12 +72,8 @@ internal class HttpSupabaseTransport : SupabaseTransport {
             }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val responseBody = stream?.use { input ->
-                input.bufferedReader(Charsets.UTF_8).use { reader ->
-                    val buffer = CharArray(MAX_BODY_CHARS)
-                    val read = reader.read(buffer)
-                    if (read <= 0) null else String(buffer, 0, read)
-                }
+            val responseBody = stream?.bufferedReader(Charsets.UTF_8)?.use { reader ->
+                reader.readText().take(MAX_BODY_CHARS).ifEmpty { null }
             }
             SupabaseHttpResponse(status, responseBody)
         } catch (error: Exception) {

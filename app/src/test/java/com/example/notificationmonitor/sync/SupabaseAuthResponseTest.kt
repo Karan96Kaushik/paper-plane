@@ -71,6 +71,52 @@ class SupabaseAuthResponseTest {
     }
 
     @Test
+    fun parsesRealisticSupabaseUserPayload() {
+        val result = parseAuthSession(
+            body = """
+                {
+                  "access_token": "$ACCESS_JWT",
+                  "refresh_token": "v1.refresh-token",
+                  "expires_in": 3600,
+                  "token_type": "bearer",
+                  "user": {
+                    "id": "$USER_ID",
+                    "aud": "authenticated",
+                    "role": "authenticated",
+                    "email": "ada@example.com",
+                    "email_confirmed_at": "2024-01-01T00:00:00Z",
+                    "phone": "",
+                    "confirmed_at": "2024-01-01T00:00:00Z",
+                    "last_sign_in_at": "2024-01-01T00:00:00Z",
+                    "app_metadata": { "provider": "email", "providers": ["email"] },
+                    "user_metadata": { "full_name": "Ada" },
+                    "identities": [
+                      {
+                        "identity_id": "22222222-2222-4222-8222-222222222222",
+                        "id": "$USER_ID",
+                        "user_id": "$USER_ID",
+                        "identity_data": {
+                          "email": "ada@example.com",
+                          "email_verified": true,
+                          "sub": "$USER_ID"
+                        },
+                        "provider": "email",
+                        "created_at": "2024-01-01T00:00:00Z",
+                        "updated_at": "2024-01-01T00:00:00Z"
+                      }
+                    ],
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-01T00:00:00Z"
+                  }
+                }
+            """.trimIndent(),
+            nowMillis = 2_000L
+        )
+        assertTrue(result is AuthSessionParse.Success)
+        assertEquals(USER_ID, (result as AuthSessionParse.Success).session.userId)
+    }
+
+    @Test
     fun surfacesAuthErrorMessageWithoutTokens() {
         val result = parseAuthSession(
             body = """{"error_code":"invalid_credentials","msg":"Invalid login credentials"}""",

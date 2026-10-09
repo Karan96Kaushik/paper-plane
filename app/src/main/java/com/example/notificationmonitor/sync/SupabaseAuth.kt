@@ -44,7 +44,7 @@ internal class SupabaseAuth(
                 "email" to normalizedEmail,
                 "password" to normalizedPassword
             ),
-            authorizationBearer = config.authAuthorizationBearer(),
+            authorizationBearer = config.authRequestAuthorizationBearer(),
             preferMinimal = false
         )
         if (!response.isSuccessful) {
@@ -61,7 +61,9 @@ internal class SupabaseAuth(
             is AuthSessionParse.Success ->
                 AuthAttempt.Success(parsed.session.copy(email = parsed.session.email.ifBlank { normalizedEmail }))
             is AuthSessionParse.Failure -> {
-                SupabaseLog.unexpectedAuthResponse("password grant: ${parsed.logDetail}")
+                SupabaseLog.unexpectedAuthResponse(
+                    "password grant status=${response.statusCode} bytes=${response.body?.length ?: 0} ${parsed.logDetail}"
+                )
                 AuthAttempt.Failure(parsed.userMessage)
             }
         }
@@ -80,7 +82,7 @@ internal class SupabaseAuth(
             url = "$url/auth/v1/token?grant_type=refresh_token",
             publishableKey = publishableKey,
             body = jsonObject("refresh_token" to session.refreshToken),
-            authorizationBearer = config.authAuthorizationBearer(),
+            authorizationBearer = config.authRequestAuthorizationBearer(),
             preferMinimal = false
         )
         if (!response.isSuccessful) {

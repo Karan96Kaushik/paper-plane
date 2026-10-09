@@ -28,11 +28,11 @@ data class SupabaseConfig(
         return value
     }
 
-    /** Legacy JWT-based anon keys still need Bearer on auth token requests. */
-    fun authAuthorizationBearer(): String? {
-        val key = normalizedPublishableKey() ?: return null
-        return key.takeIf { isLegacyJwtApiKey(it) }
-    }
+    /**
+     * Bearer value for `/auth/v1/token` requests. Matches supabase-js: the publishable (or legacy anon) key
+     * on `Authorization`, in addition to the `apikey` header.
+     */
+    fun authRequestAuthorizationBearer(): String? = normalizedPublishableKey()
 
     /** Project URL plus table. Null when either value is not usable. */
     fun destination(): String? {

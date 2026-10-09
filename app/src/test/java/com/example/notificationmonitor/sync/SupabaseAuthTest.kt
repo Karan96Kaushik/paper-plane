@@ -60,7 +60,7 @@ class SupabaseAuthTest {
         val call = transport.posts.single()
         assertEquals("https://abc.supabase.co/auth/v1/token?grant_type=password", call.url)
         assertEquals("sb_publishable_test", call.publishableKey)
-        assertNull(call.authorizationBearer)
+        assertEquals("sb_publishable_test", call.authorizationBearer)
         assertEquals(false, call.preferMinimal)
         assertTrue(call.body.contains(""""email":"ada@example.com""""))
         assertTrue(call.body.contains(""""password":"s3cret""""))
@@ -136,7 +136,7 @@ class SupabaseAuthTest {
         val call = transport.posts.single()
         assertEquals("https://abc.supabase.co/auth/v1/token?grant_type=refresh_token", call.url)
         assertTrue(call.body.contains(""""refresh_token":"stored-refresh""""))
-        assertNull(call.authorizationBearer)
+        assertEquals("sb_publishable_test", call.authorizationBearer)
         val session = (attempt as AuthAttempt.Success).session
         assertEquals("new-access", session.accessToken)
         assertEquals(5_000L + 1_800_000L, session.expiresAtMillis)
