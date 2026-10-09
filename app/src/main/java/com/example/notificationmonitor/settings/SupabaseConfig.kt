@@ -114,24 +114,6 @@ data class SupabaseConfig(
         return null
     }
 
-    /** Trims accidental whitespace from paste; does not persist the password. */
-    fun normalizeSignInPassword(raw: String): String? {
-        val trimmed = raw.trim()
-        if (trimmed.isEmpty()) return null
-        if (trimmed.any { it.isISOControl() }) return null
-        return trimmed
-    }
-
-    fun signInPasswordError(raw: String): String {
-        if (raw.trim().isEmpty()) {
-            return "Enter the password, then tap Sign in (or Save with push enabled)."
-        }
-        if (raw.any { it.isISOControl() }) {
-            return "Password contains unsupported characters. Remove line breaks or hidden characters."
-        }
-        return "Enter the password, then tap Sign in (or Save with push enabled)."
-    }
-
     companion object {
         const val DEFAULT_TABLE = "notifications"
         private val TABLE_PATTERN = Regex("^[A-Za-z_][A-Za-z0-9_]*$")
@@ -150,6 +132,24 @@ data class SupabaseConfig(
             val value = raw.trim()
             if (value.isEmpty() || value.any { it.isISOControl() }) return null
             return value
+        }
+
+        /** Trims accidental whitespace from paste; does not persist the password. */
+        fun normalizeSignInPassword(raw: String): String? {
+            val trimmed = raw.trim()
+            if (trimmed.isEmpty()) return null
+            if (trimmed.any { it.isISOControl() }) return null
+            return trimmed
+        }
+
+        fun signInPasswordError(raw: String): String {
+            if (raw.trim().isEmpty()) {
+                return "Enter the password, then tap Sign in (or Save with push enabled)."
+            }
+            if (raw.any { it.isISOControl() }) {
+                return "Password contains unsupported characters. Remove line breaks or hidden characters."
+            }
+            return "Enter the password, then tap Sign in (or Save with push enabled)."
         }
 
         fun isLegacyJwtApiKey(key: String): Boolean {
