@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         RepublishRuleEntity::class,
         WorkflowEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,7 +35,8 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         DatabaseMigrations.MIGRATION_1_2,
-                        DatabaseMigrations.MIGRATION_2_3
+                        DatabaseMigrations.MIGRATION_2_3,
+                        DatabaseMigrations.MIGRATION_3_4
                     )
                     .build()
                     .also { instance = it }

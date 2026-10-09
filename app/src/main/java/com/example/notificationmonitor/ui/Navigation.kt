@@ -27,6 +27,7 @@ import androidx.navigation.navArgument
 import com.example.notificationmonitor.notification.LocalNotificationManager
 import com.example.notificationmonitor.notification.NotificationRepublisher
 import com.example.notificationmonitor.repository.NotificationRepository
+import com.example.notificationmonitor.sync.SupabasePublisher
 import com.example.notificationmonitor.ui.apps.AppsScreen
 import com.example.notificationmonitor.ui.history.HistoryScreen
 import com.example.notificationmonitor.ui.history.NotificationDetailScreen
@@ -42,6 +43,7 @@ fun NotificationMonitorApp(
     repository: NotificationRepository,
     localNotificationManager: LocalNotificationManager,
     republisher: NotificationRepublisher,
+    supabasePublisher: SupabasePublisher,
     pendingNotificationId: Long? = null,
     onPendingNotificationConsumed: () -> Unit = {}
 ) {
@@ -118,7 +120,8 @@ fun NotificationMonitorApp(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     repository = repository,
-                    localNotificationManager = localNotificationManager
+                    localNotificationManager = localNotificationManager,
+                    supabasePublisher = supabasePublisher
                 )
             }
             composable(

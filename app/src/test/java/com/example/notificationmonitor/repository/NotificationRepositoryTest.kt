@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.notificationmonitor.database.AppDatabase
 import com.example.notificationmonitor.database.NotificationEntity
 import com.example.notificationmonitor.settings.RetentionPeriod
+import com.example.notificationmonitor.settings.SupabaseConfig
 import com.example.notificationmonitor.settings.UserPreferences
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -13,6 +14,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -141,6 +143,34 @@ class NotificationRepositoryTest {
         repository.markRepublished(id!!, 1234L)
         assertEquals(1234L, repository.observeNotification(id).first()?.republishedAt)
         assertEquals(1, repository.countRepublishedKeySince("key-1", 1000L))
+    }
+
+    @Test
+    fun supabaseSyncResetsWhenTheProjectChanges() = runTest {
+        val first = repository.insertIfAllowed(sampleNotification(key = "a", postedAt = 1L))
+        val second = repository.insertIfAllowed(sampleNotification(key = "b", postedAt = 2L))
+        assertNotNull(first)
+        assertNotNull(second)
+        val projectA = SupabaseConfig(
+            enabled = true,
+            projectUrl = "https://one.supabase.co",
+            apiKey = "key-a",
+            table = "notifications"
+        )
+        repository.saveSupabaseConfig(projectA)
+        repository.markSupabaseSynced(listOf(first!!, second!!))
+        assertTrue(repository.unsyncedNotifications(10).isEmpty())
+
+        repository.saveSupabaseConfig(projectA.copy(apiKey = "key-b"))
+        assertTrue(repository.unsyncedNotifications(10).isEmpty())
+
+        repository.saveSupabaseConfig(
+            projectA.copy(projectUrl = "https://two.supabase.co")
+        )
+        assertEquals(
+            listOf(first, second),
+            repository.unsyncedNotifications(10).map { it.id }
+        )
     }
 
     private fun sampleNotification(

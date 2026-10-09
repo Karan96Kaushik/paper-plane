@@ -11,6 +11,7 @@ import com.example.notificationmonitor.database.RepublishRuleEntity
 import com.example.notificationmonitor.database.WorkflowEntity
 import com.example.notificationmonitor.notification.NotificationType
 import com.example.notificationmonitor.settings.RetentionPeriod
+import com.example.notificationmonitor.settings.SupabaseConfig
 import com.example.notificationmonitor.settings.UserPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -129,6 +130,58 @@ class NotificationRepository(
     }
 
     suspend fun isAutoRepublishEnabled(): Boolean = preferences.isAutoRepublishEnabled()
+
+    fun observeSupabaseConfig(): Flow<SupabaseConfig> = preferences.supabaseConfig
+
+    suspend fun currentSupabaseConfig(): SupabaseConfig = preferences.currentSupabaseConfig()
+
+    suspend fun saveSupabaseConfig(config: SupabaseConfig) {
+        val previous = preferences.currentSupabaseConfig()
+        val projectChanged = previous.normalizedUrl() != config.normalizedUrl() ||
+            previous.normalizedApiKey() != config.normalizedApiKey()
+        val saved = if (projectChanged) {
+            config.clearedSession()
+        } else {
+            config.copy(
+                accountEmail = previous.accountEmail,
+                userId = previous.userId,
+                accessToken = previous.accessToken,
+                refreshToken = previous.refreshToken,
+                accessTokenExpiresAt = previous.accessTokenExpiresAt
+            )
+        }
+        replaceSupabaseConfig(saved)
+    }
+
+    suspend fun replaceSupabaseConfig(updated: SupabaseConfig) {
+        val previous = preferences.currentSupabaseConfig()
+        preferences.setSupabaseConfig(updated)
+        if (deliveryTargetChanged(previous, updated)) {
+            notificationDao.clearSupabaseSync()
+        }
+    }
+
+    suspend fun clearSupabaseSession() {
+        val current = preferences.currentSupabaseConfig()
+        replaceSupabaseConfig(current.clearedSession())
+    }
+
+    private fun deliveryTargetChanged(previous: SupabaseConfig, updated: SupabaseConfig): Boolean {
+        if (previous.normalizedUrl() == null) return false
+        if (previous.normalizedUrl() != updated.normalizedUrl()) return true
+        if (previous.normalizedTable() != updated.normalizedTable()) return true
+        val previousUser = previous.normalizedUserId()
+        val nextUser = updated.normalizedUserId()
+        return previousUser != null && nextUser != null && previousUser != nextUser
+    }
+
+    suspend fun unsyncedNotifications(limit: Int): List<NotificationEntity> =
+        notificationDao.getUnsynced(limit)
+
+    suspend fun markSupabaseSynced(ids: List<Long>, syncedAt: Long = System.currentTimeMillis()) {
+        if (ids.isEmpty()) return
+        notificationDao.markSupabaseSynced(ids, syncedAt)
+    }
 
     fun observeRepublishRules(): Flow<List<RepublishRuleEntity>> = republishRuleDao.observeAll()
 

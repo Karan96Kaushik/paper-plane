@@ -27,5 +27,6 @@ data class NotificationEntity(
     val receivedAt: Long,
     val isOngoing: Boolean,
     val isClearable: Boolean,
-    val republishedAt: Long? = null
+    val republishedAt: Long? = null,
+    val supabaseSyncedAt: Long? = null
 )

@@ -99,4 +99,20 @@ interface NotificationDao {
 
     @Query("SELECT * FROM notifications WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<Long>): List<NotificationEntity>
+
+    @Query(
+        """
+        SELECT * FROM notifications
+        WHERE supabaseSyncedAt IS NULL
+        ORDER BY postedAt ASC
+        LIMIT :limit
+        """
+    )
+    suspend fun getUnsynced(limit: Int): List<NotificationEntity>
+
+    @Query("UPDATE notifications SET supabaseSyncedAt = :syncedAt WHERE id IN (:ids)")
+    suspend fun markSupabaseSynced(ids: List<Long>, syncedAt: Long)
+
+    @Query("UPDATE notifications SET supabaseSyncedAt = NULL")
+    suspend fun clearSupabaseSync()
 }

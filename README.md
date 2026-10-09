@@ -2,7 +2,7 @@
 
 Native Android app (Kotlin + Jetpack Compose) that monitors notifications from other apps via `NotificationListenerService`, stores them locally with Room, and lets you filter by source app.
 
-All notification content stays on-device. Nothing is uploaded.
+Notification content stays on-device unless you turn on Supabase push in Settings.
 
 ## Requirements
 
@@ -112,6 +112,52 @@ Monitoring continues while the UI is closed; the system binds `NotificationListe
 - Send a local test notification
 - Configurable retention (1 / 7 / 30 days / Forever) with WorkManager cleanup
 - Android 13+ `POST_NOTIFICATIONS` request for local notifications only
+- Optional Supabase push: sign in with a Supabase user, then captured notifications are inserted for that user
+
+## Supabase push
+
+In **Settings → Supabase**, enter the project URL (`https://your-project.supabase.co`), the project **anon key**, and a table name (default `notifications`). Sign in with the email and password of the Supabase user that should receive the rows. Turn on **Push notifications** and save.
+
+The anon key only identifies the project. Inserts use that user's access token, and each row stores their `user_id`. The password is not saved. The session stays on this device and is refreshed when it expires.
+
+New captured notifications are inserted with the REST API. If the device is offline, they stay queued and are sent together when the connection returns. **Push existing history** sends rows that have not been delivered to the current user yet. Changing the project URL or signing in as a different user marks local history as unsent so it can be pushed again.
+
+Create the table in the Supabase SQL editor. Email sign-in must be enabled for the project.
+
+```sql
+create table notifications (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  local_id bigint,
+  device_id text,
+  package_name text,
+  app_name text,
+  title text,
+  text text,
+  sub_text text,
+  big_text text,
+  category text,
+  notification_key text,
+  posted_at bigint,
+  received_at bigint,
+  is_ongoing boolean,
+  is_clearable boolean
+);
+
+alter table notifications enable row level security;
+
+create policy "paperplane insert own rows"
+on notifications for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "paperplane read own rows"
+on notifications for select
+to authenticated
+using (auth.uid() = user_id);
+```
+
+Only the signed-in user can insert or read their own rows. The anon role cannot.
 
 ## Release signing
 
@@ -162,7 +208,8 @@ app/src/main/java/com/example/notificationmonitor/
   database/        # Room entities + DAOs
   repository/      # Single UI data access layer
   ui/              # Compose: Home, History, Apps, Settings
-  settings/        # Retention preferences
+  settings/        # Retention and Supabase preferences
+  sync/            # Optional Supabase push
   work/            # Retention cleanup worker
 ```
 
@@ -170,8 +217,9 @@ Package / application id: `com.example.notificationmonitor` (change in `app/buil
 
 ## Privacy
 
-- No backend
 - No analytics
 - Notification text is not logged
-- Use **Clear all history** in Settings to wipe local data
+- Supabase push is off until you sign in and turn it on in Settings
+- The anon key and user session stay on the device. The password is not stored
+- **Clear all history** wipes local data only. Rows already sent to Supabase stay in that project
 # paper-plane

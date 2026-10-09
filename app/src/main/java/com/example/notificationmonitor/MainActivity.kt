@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
                         repository = app.repository,
                         localNotificationManager = app.localNotificationManager,
                         republisher = app.republisher,
+                        supabasePublisher = app.supabasePublisher,
                         pendingNotificationId = openId,
                         onPendingNotificationConsumed = { pendingNotificationId = null }
                     )

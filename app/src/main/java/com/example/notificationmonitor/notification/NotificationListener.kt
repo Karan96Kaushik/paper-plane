@@ -4,7 +4,14 @@ import android.content.ComponentName
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.example.notificationmonitor.NotificationMonitorApplication
 import com.example.notificationmonitor.repository.NotificationRepository
+import com.example.notificationmonitor.settings.UserPreferences
+import com.example.notificationmonitor.sync.SupabaseNetworkSync
+import com.example.notificationmonitor.sync.SupabaseOutcome
+import com.example.notificationmonitor.sync.SupabasePublisher
+import com.example.notificationmonitor.sync.supabaseDeviceId
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,6 +29,8 @@ class NotificationListener : NotificationListenerService() {
     private lateinit var parser: NotificationParser
     private lateinit var repository: NotificationRepository
     private lateinit var republisher: NotificationRepublisher
+    private lateinit var supabasePublisher: SupabasePublisher
+    private var supabaseNetworkSync: SupabaseNetworkSync? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -31,6 +40,17 @@ class NotificationListener : NotificationListenerService() {
             repository = repository,
             poster = LocalNotificationManager(applicationContext)
         )
+        val app = application
+        if (app is NotificationMonitorApplication) {
+            supabasePublisher = app.supabasePublisher
+            supabaseNetworkSync = app.supabaseNetworkSync
+        } else {
+            val preferences = UserPreferences(applicationContext)
+            supabasePublisher = SupabasePublisher(
+                currentConfig = { preferences.supabaseConfig.first() },
+                deviceId = supabaseDeviceId(applicationContext)
+            )
+        }
     }
 
     override fun onListenerConnected() {
@@ -56,7 +76,13 @@ class NotificationListener : NotificationListenerService() {
             try {
                 val entity = parser.parse(sbn) ?: return@launch
                 val rowId = repository.insertIfAllowed(entity) ?: return@launch
-                republisher.onNewNotification(entity.copy(id = rowId))
+                val stored = entity.copy(id = rowId)
+                try {
+                    republisher.onNewNotification(stored)
+                } catch (error: Exception) {
+                    Log.e(TAG, "Failed to republish notification", error)
+                }
+                flushSupabase()
             } catch (error: Exception) {
                 Log.e(TAG, "Failed handling posted notification", error)
             }
@@ -67,6 +93,28 @@ class NotificationListener : NotificationListenerService() {
         // Structured for future persistence of removal events.
         if (sbn == null) return
         Log.d(TAG, "Notification removed package=${sbn.packageName}")
+    }
+
+    private fun flushSupabase() {
+        val sync = supabaseNetworkSync
+        if (sync != null) {
+            sync.requestFlush()
+            return
+        }
+        serviceScope.launch {
+            try {
+                when (val outcome = supabasePublisher.pushPending(
+                    loadPage = { limit -> repository.unsyncedNotifications(limit) },
+                    markSynced = { ids -> repository.markSupabaseSynced(ids) }
+                )) {
+                    is SupabaseOutcome.Failure ->
+                        Log.w(TAG, "Supabase push failed status=${outcome.statusCode}")
+                    else -> Unit
+                }
+            } catch (error: Exception) {
+                Log.e(TAG, "Supabase push failed", error)
+            }
+        }
     }
 
     override fun onDestroy() {
