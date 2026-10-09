@@ -117,6 +117,33 @@ class SupabaseAuthResponseTest {
     }
 
     @Test
+    fun parsesTokensWhenUserJsonTailIsTruncated() {
+        val userId = "fbeb92d1-941e-494b-9441-fbeb92d1941e"
+        val jwt =
+            "eyJhbGciOiJFUzI1NiIsImtpZCI6IjczYmJmMjAyLWUyNDEtNGZhOC1hYTgxLTE2MjdkOGQxYjk3MSIsInR5cCI6IkpXVCJ9." +
+                "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuc3VwYWJhc2UuY28vYXV0aC92MSIsInN1YiI6ImZiZWI5MmQxLTk0MWUtNDk0Yi05NDQxLWZiZWI5MmQxOTQxZSIsImVtYWlsIjoiYWRhQGV4YW1wbGUuY29tIn0." +
+                "signature"
+        val truncated = """
+            {
+              "access_token": "$jwt",
+              "refresh_token": "v1.local-refresh",
+              "expires_in": 3600,
+              "token_type": "bearer",
+              "user": {
+                "id": "$userId",
+                "email": "ada@example.com",
+                "identities": [
+                  { "identity_id": "22222222-2222-4222-8222-222222222222",
+            """.trimIndent()
+        val result = parseAuthSession(truncated, nowMillis = 500L)
+        assertTrue(result is AuthSessionParse.Success)
+        val session = (result as AuthSessionParse.Success).session
+        assertEquals(userId, session.userId)
+        assertEquals("ada@example.com", session.email)
+        assertEquals(500L + 3_600_000L, session.expiresAtMillis)
+    }
+
+    @Test
     fun surfacesAuthErrorMessageWithoutTokens() {
         val result = parseAuthSession(
             body = """{"error_code":"invalid_credentials","msg":"Invalid login credentials"}""",

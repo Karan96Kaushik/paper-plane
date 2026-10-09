@@ -29,12 +29,27 @@ internal fun parseAuthSession(
             logDetail = "html response prefix=${trimmed.take(40)}"
         )
     }
+
+    parseSessionFromTokenScalars(trimmed, nowMillis, fallbackEmail)?.let { return it }
+
+    if (SupabaseAuthJsonScalars.extractString(trimmed, "access_token") == null) {
+        val head = trimmed.take(512)
+        val id = SupabaseAuthJsonScalars.extractString(head, "id")?.trim().orEmpty()
+        val email = SupabaseAuthJsonScalars.extractString(head, "email")?.trim().orEmpty()
+        if (id.isNotEmpty() && email.isNotEmpty() && USER_ID_PATTERN.matches(id)) {
+            return AuthSessionParse.Failure(
+                userMessage = "Confirm your email in Supabase, then sign in again.",
+                logDetail = "email confirmation required user=$email"
+            )
+        }
+    }
+
     val json = try {
         JSONObject(trimmed)
     } catch (error: JSONException) {
         return AuthSessionParse.Failure(
             userMessage = "Supabase returned a response this app could not read.",
-            logDetail = "json exception=${error.message} len=${trimmed.length} preview=${authBodyPreview(trimmed)}"
+            logDetail = "json exception=${error.message} len=${trimmed.length} complete=${trimmed.endsWith("}")} preview=${authBodyPreview(trimmed)}"
         )
     }
     authJsonUserMessage(json)?.let { message ->
@@ -61,36 +76,59 @@ internal fun parseAuthSession(
             logDetail = "error_code=${json.optString("error_code")}"
         )
     }
-    return buildSessionFromTokenJson(tokenRoot(json), nowMillis, fallbackEmail)
+    return buildSessionFromTokenJson(tokenRoot(json), trimmed, nowMillis, fallbackEmail)
         ?: AuthSessionParse.Failure(
             userMessage = buildUnexpectedSignInMessage(json),
-            logDetail = "missing session fields len=${trimmed.length} preview=${authBodyPreview(trimmed)}"
+            logDetail = "missing session fields len=${trimmed.length} complete=${trimmed.endsWith("}")} preview=${authBodyPreview(trimmed)}"
         )
 }
 
-private fun buildUnexpectedSignInMessage(json: JSONObject): String {
-    val extra = authJsonUserMessage(json)
-    val base = "Supabase did not return a sign-in session. If email confirmation is enabled, confirm your email first."
-    return if (extra == null) base else "$base $extra"
-}
-
-private fun tokenRoot(json: JSONObject): JSONObject {
-    return json.optJSONObject("session") ?: json
+private fun parseSessionFromTokenScalars(
+    trimmed: String,
+    nowMillis: Long,
+    fallbackEmail: String
+): AuthSessionParse.Success? {
+    val sessionBlock = trimmed.indexOf("\"session\"").let { sessionKey ->
+        if (sessionKey < 0) trimmed else {
+            trimmed.indexOf('{', sessionKey).takeIf { it >= 0 }?.let { trimmed.substring(it) } ?: trimmed
+        }
+    }
+    val access = SupabaseAuthJsonScalars.extractString(sessionBlock, "access_token") ?: return null
+    val refresh = SupabaseAuthJsonScalars.extractString(sessionBlock, "refresh_token") ?: return null
+    return buildSessionFromTokens(
+        access = access,
+        refresh = refresh,
+        json = trimmed,
+        nowMillis = nowMillis,
+        fallbackEmail = fallbackEmail
+    )
 }
 
 private fun buildSessionFromTokenJson(
     json: JSONObject,
+    fullBody: String,
     nowMillis: Long,
     fallbackEmail: String
 ): AuthSessionParse.Success? {
     val access = json.optString("access_token").trim().takeIf { it.isNotEmpty() } ?: return null
     val refresh = json.optString("refresh_token").trim().takeIf { it.isNotEmpty() } ?: return null
+    return buildSessionFromTokens(access, refresh, fullBody, nowMillis, fallbackEmail, json.optJSONObject("user"))
+}
+
+private fun buildSessionFromTokens(
+    access: String,
+    refresh: String,
+    json: String,
+    nowMillis: Long,
+    fallbackEmail: String,
+    user: JSONObject? = null
+): AuthSessionParse.Success? {
     if (SupabaseConfig.normalizedSecret(access) == null) return null
     if (SupabaseConfig.normalizedSecret(refresh) == null) return null
 
-    val user = json.optJSONObject("user")
     val userId = user?.optString("id")?.trim()?.takeIf { USER_ID_PATTERN.matches(it) }
         ?: jwtClaim(access, "sub")
+        ?: SupabaseAuthJsonScalars.extractString(json, "id")?.trim()?.takeIf { USER_ID_PATTERN.matches(it) }
     if (userId == null || !USER_ID_PATTERN.matches(userId)) return null
 
     val email = user?.optString("email")?.trim().orEmpty()
@@ -101,11 +139,33 @@ private fun buildSessionFromTokenJson(
         SupabaseSession(
             userId = userId,
             email = email,
-            accessToken = access,
-            refreshToken = refresh,
-            expiresAtMillis = expiresAtMillis(json, nowMillis)
+            accessToken = access.trim(),
+            refreshToken = refresh.trim(),
+            expiresAtMillis = scalarExpiresAtMillis(json, nowMillis)
         )
     )
+}
+
+private fun scalarExpiresAtMillis(json: String, nowMillis: Long): Long {
+    SupabaseAuthJsonScalars.extractLong(json, "expires_at")?.let { expiresAt ->
+        if (expiresAt > 0L) {
+            return if (expiresAt > 10_000_000_000L) expiresAt else expiresAt * 1000
+        }
+    }
+    SupabaseAuthJsonScalars.extractLong(json, "expires_in")?.let { expiresIn ->
+        if (expiresIn > 0L) return nowMillis + expiresIn * 1000
+    }
+    return nowMillis + 3_600_000
+}
+
+private fun buildUnexpectedSignInMessage(json: JSONObject): String {
+    val extra = authJsonUserMessage(json)
+    val base = "Supabase did not return a sign-in session. If email confirmation is enabled, confirm your email first."
+    return if (extra == null) base else "$base $extra"
+}
+
+private fun tokenRoot(json: JSONObject): JSONObject {
+    return json.optJSONObject("session") ?: json
 }
 
 private fun isPendingEmailConfirmation(json: JSONObject): Boolean {
@@ -132,6 +192,7 @@ internal fun authJsonUserMessage(fields: Map<String, JsonValue>): String? {
 internal fun authBodyPreview(body: String, maxLen: Int = 220): String {
     val redacted = body
         .replace(Regex(""""(access_token|refresh_token)"\s*:\s*"[^"]*""""), """"$1":"…"""")
+        .replace(Regex(""""(access_token|refresh_token)"\s*:\s*"(?:\\.|[^"\\]){8,}"""), """"$1":"…"""")
         .replace(Regex("\\s+"), " ")
         .trim()
     return redacted.take(maxLen)
@@ -156,20 +217,6 @@ private fun jwtClaim(accessToken: String, claim: String): String? {
     } catch (_: JSONException) {
         null
     }
-}
-
-private fun expiresAtMillis(json: JSONObject, nowMillis: Long): Long {
-    if (json.has("expires_at") && !json.isNull("expires_at")) {
-        val expiresAt = json.optLong("expires_at")
-        if (expiresAt > 0L) {
-            return if (expiresAt > 10_000_000_000L) expiresAt else expiresAt * 1000
-        }
-    }
-    if (json.has("expires_in") && !json.isNull("expires_in")) {
-        val expiresIn = json.optLong("expires_in")
-        if (expiresIn > 0L) return nowMillis + expiresIn * 1000
-    }
-    return nowMillis + 3_600_000
 }
 
 private val USER_ID_PATTERN =
