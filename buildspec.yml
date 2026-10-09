@@ -84,9 +84,18 @@ phases:
         SAFE_NAME=$(echo "$PAPERPLANE_VERSION_NAME" | sed 's/[^A-Za-z0-9._-]/-/g')
         BASE="paperplane-${SAFE_NAME}-v${PAPERPLANE_VERSION_CODE}"
         mkdir -p dist
-        DEBUG_APK=$(find app/build/outputs/apk/debug -name 'paperplane-*.apk' | head -1)
-        RELEASE_APK=$(find app/build/outputs/apk/release -name 'paperplane-*.apk' | head -1)
-        RELEASE_AAB=$(find app/build/outputs/bundle/release -name 'paperplane-*.aab' | head -1)
+        DEBUG_APK=$(find app/build/outputs/apk/debug -name 'paperplane-*.apk' 2>/dev/null | head -1)
+        if [ -z "$DEBUG_APK" ]; then
+          DEBUG_APK=$(find app/build/outputs/apk/debug -name '*.apk' 2>/dev/null | head -1)
+        fi
+        RELEASE_APK=$(find app/build/outputs/apk/release -name 'paperplane-*.apk' 2>/dev/null | head -1)
+        if [ -z "$RELEASE_APK" ]; then
+          RELEASE_APK=$(find app/build/outputs/apk/release -name '*.apk' 2>/dev/null | head -1)
+        fi
+        RELEASE_AAB=$(find app/build/outputs/bundle/release -name 'paperplane-*.aab' 2>/dev/null | head -1)
+        if [ -z "$RELEASE_AAB" ]; then
+          RELEASE_AAB=$(find app/build/outputs/bundle/release -name '*.aab' 2>/dev/null | head -1)
+        fi
         if [ -n "$DEBUG_APK" ]; then
           cp "$DEBUG_APK" "dist/${BASE}-debug.apk"
         fi

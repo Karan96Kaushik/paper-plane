@@ -196,15 +196,31 @@ android {
     }
 }
 
-androidComponents {
-    onVariants { variant ->
-        variant.outputs.forEach { output ->
-            val baseName = provider {
-                val versionName = variant.versionName.orNull ?: resolvedVersion.name
-                val versionCode = variant.versionCode.orNull ?: resolvedVersion.code
-                paperplaneArtifactBase(versionName, versionCode, variant.buildType)
+afterEvaluate {
+    android.applicationVariants.configureEach { variant ->
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val buildType = variant.buildType.name
+        val renameTask = tasks.register("renamePaperplaneApk$variantName") {
+            doLast {
+                val versionName = variant.versionName ?: resolvedVersion.name
+                val versionCode = variant.versionCode
+                val targetName = "${paperplaneArtifactBase(versionName, versionCode, buildType)}.apk"
+                variant.outputs.forEach { output ->
+                    @Suppress("DEPRECATION")
+                    val source = output.outputFile
+                    if (!source.exists()) return@forEach
+                    val target = source.parentFile.resolve(targetName)
+                    if (target.exists()) {
+                        target.delete()
+                    }
+                    check(source.renameTo(target)) {
+                        "Failed to rename ${source.name} to ${target.name}"
+                    }
+                }
             }
-            output.outputFileName.set(baseName.map { "$it.apk" })
+        }
+        tasks.named("assemble$variantName").configure {
+            finalizedBy(renameTask)
         }
     }
 }
