@@ -116,9 +116,9 @@ Monitoring continues while the UI is closed; the system binds `NotificationListe
 
 ## Supabase push
 
-In **Settings → Supabase**, enter the project URL (`https://your-project.supabase.co`), the project **anon key**, and a table name (default `notifications`). Sign in with the email and password of the Supabase user that should receive the rows. Turn on **Push notifications** and save.
+In **Settings → Supabase**, enter the project URL (`https://your-project.supabase.co`), the project **publishable key** (`sb_publishable_...` from Supabase **Settings → API Keys**), and a table name (default `notifications`). Sign in with the email and password of the Supabase user that should receive the rows. Turn on **Push notifications** and save.
 
-The anon key only identifies the project. Inserts use that user's access token, and each row stores their `user_id`. The password is not saved. The session stays on this device and is refreshed when it expires.
+The publishable key only identifies the project. Inserts use that user's access token on the `Authorization` header; the publishable key is sent on `apikey` only. Each row stores their `user_id`. The password is not saved. The session stays on this device and is refreshed when it expires.
 
 New captured notifications are inserted with the REST API. If the device is offline, they stay queued and are sent together when the connection returns. **Push existing history** sends rows that have not been delivered to the current user yet. Changing the project URL or signing in as a different user marks local history as unsent so it can be pushed again.
 
@@ -157,7 +157,7 @@ to authenticated
 using (auth.uid() = user_id);
 ```
 
-Only the signed-in user can insert or read their own rows. The anon role cannot.
+Only the signed-in user can insert or read their own rows. Do not use a secret key (`sb_secret_...`) in the app.
 
 ## Release signing
 
@@ -220,6 +220,6 @@ Package / application id: `com.example.notificationmonitor` (change in `app/buil
 - No analytics
 - Notification text is not logged
 - Supabase push is off until you sign in and turn it on in Settings
-- The anon key and user session stay on the device. The password is not stored
+- The publishable key and user session stay on the device. The password is not stored
 - **Clear all history** wipes local data only. Rows already sent to Supabase stay in that project
 # paper-plane

@@ -20,15 +20,16 @@ internal class SupabaseAuth(
             return AuthAttempt.Failure("Enter the password.")
         }
         val url = config.normalizedUrl() ?: return AuthAttempt.Failure("Enter the Supabase project URL.")
-        val apiKey = config.normalizedApiKey() ?: return AuthAttempt.Failure("Enter the anon key.")
+        val publishableKey = config.normalizedPublishableKey()
+            ?: return AuthAttempt.Failure("Enter the publishable key.")
         val response = transport.post(
             url = "$url/auth/v1/token?grant_type=password",
-            apiKey = apiKey,
-            bearerToken = apiKey,
+            publishableKey = publishableKey,
             body = jsonObject(
                 "email" to normalizedEmail,
                 "password" to password
             ),
+            authorizationBearer = config.authAuthorizationBearer(),
             preferMinimal = false
         )
         if (!response.isSuccessful) {
@@ -43,12 +44,13 @@ internal class SupabaseAuth(
         val session = config.session()
             ?: return AuthAttempt.Failure("Sign in with the Supabase user that should receive notifications.")
         val url = config.normalizedUrl() ?: return AuthAttempt.Failure("Enter the Supabase project URL.")
-        val apiKey = config.normalizedApiKey() ?: return AuthAttempt.Failure("Enter the anon key.")
+        val publishableKey = config.normalizedPublishableKey()
+            ?: return AuthAttempt.Failure("Enter the publishable key.")
         val response = transport.post(
             url = "$url/auth/v1/token?grant_type=refresh_token",
-            apiKey = apiKey,
-            bearerToken = apiKey,
+            publishableKey = publishableKey,
             body = jsonObject("refresh_token" to session.refreshToken),
+            authorizationBearer = config.authAuthorizationBearer(),
             preferMinimal = false
         )
         if (!response.isSuccessful) {

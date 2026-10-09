@@ -44,7 +44,8 @@ class UserPreferences(private val context: Context) {
         SupabaseConfig(
             enabled = prefs[KEY_SUPABASE_ENABLED] ?: false,
             projectUrl = prefs[KEY_SUPABASE_URL].orEmpty(),
-            apiKey = prefs[KEY_SUPABASE_API_KEY].orEmpty(),
+            publishableKey = prefs[KEY_SUPABASE_PUBLISHABLE_KEY]
+                ?: prefs[KEY_SUPABASE_API_KEY].orEmpty(),
             table = prefs[KEY_SUPABASE_TABLE]?.takeIf { it.isNotBlank() } ?: SupabaseConfig.DEFAULT_TABLE,
             email = prefs[KEY_SUPABASE_EMAIL].orEmpty(),
             accountEmail = prefs[KEY_SUPABASE_ACCOUNT_EMAIL].orEmpty(),
@@ -59,7 +60,8 @@ class UserPreferences(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[KEY_SUPABASE_ENABLED] = config.enabled
             prefs[KEY_SUPABASE_URL] = config.projectUrl.trim()
-            prefs[KEY_SUPABASE_API_KEY] = config.apiKey.trim()
+            prefs[KEY_SUPABASE_PUBLISHABLE_KEY] = config.publishableKey.trim()
+            prefs.remove(KEY_SUPABASE_API_KEY)
             prefs[KEY_SUPABASE_TABLE] = config.table.trim().ifBlank { SupabaseConfig.DEFAULT_TABLE }
             prefs[KEY_SUPABASE_EMAIL] = config.email.trim()
             prefs[KEY_SUPABASE_ACCOUNT_EMAIL] = config.accountEmail.trim()
@@ -77,6 +79,7 @@ class UserPreferences(private val context: Context) {
         private val KEY_AUTO_REPUBLISH = booleanPreferencesKey("auto_republish_enabled")
         private val KEY_SUPABASE_ENABLED = booleanPreferencesKey("supabase_enabled")
         private val KEY_SUPABASE_URL = stringPreferencesKey("supabase_url")
+        private val KEY_SUPABASE_PUBLISHABLE_KEY = stringPreferencesKey("supabase_publishable_key")
         private val KEY_SUPABASE_API_KEY = stringPreferencesKey("supabase_api_key")
         private val KEY_SUPABASE_TABLE = stringPreferencesKey("supabase_table")
         private val KEY_SUPABASE_EMAIL = stringPreferencesKey("supabase_email")

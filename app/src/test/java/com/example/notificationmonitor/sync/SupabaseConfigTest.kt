@@ -14,7 +14,7 @@ class SupabaseConfigTest {
         val config = SupabaseConfig(
             enabled = true,
             projectUrl = "https://abc.supabase.co/",
-            apiKey = " key ",
+            publishableKey = " sb_publishable_abc ",
             table = "",
             email = "ada@example.com",
             accountEmail = "ada@example.com",
@@ -25,7 +25,7 @@ class SupabaseConfigTest {
         )
         assertEquals("https://abc.supabase.co", config.normalizedUrl())
         assertEquals("notifications", config.normalizedTable())
-        assertEquals("key", config.normalizedApiKey())
+        assertEquals("sb_publishable_abc", config.normalizedPublishableKey())
         assertEquals("https://abc.supabase.co/rest/v1/notifications", config.destination())
         assertEquals(USER_ID, config.session()?.userId)
         assertTrue(config.isReady())
@@ -37,12 +37,25 @@ class SupabaseConfigTest {
         val config = SupabaseConfig(
             enabled = true,
             projectUrl = "https://abc.supabase.co",
-            apiKey = "key"
+            publishableKey = "sb_publishable_x"
         )
         assertFalse(config.isReady())
         assertEquals(
             "Sign in with the Supabase user that should receive notifications.",
             config.validationError()
+        )
+    }
+
+    @Test
+    fun rejectsSecretKeys() {
+        val config = SupabaseConfig(
+            projectUrl = "https://abc.supabase.co",
+            publishableKey = "sb_secret_abc"
+        )
+        assertNull(config.normalizedPublishableKey())
+        assertEquals(
+            "Use the publishable key (sb_publishable_...), not a secret key.",
+            config.projectError()
         )
     }
 
@@ -59,7 +72,7 @@ class SupabaseConfigTest {
     fun rejectsUnsafeTableNames() {
         val config = SupabaseConfig(
             projectUrl = "https://abc.supabase.co",
-            apiKey = "key",
+            publishableKey = "sb_publishable_x",
             table = "noti-fications"
         )
         assertNull(config.normalizedTable())
@@ -75,7 +88,7 @@ class SupabaseConfigTest {
         val config = SupabaseConfig(
             enabled = false,
             projectUrl = "https://abc.supabase.co",
-            apiKey = "key",
+            publishableKey = "sb_publishable_x",
             userId = USER_ID,
             accessToken = "access",
             refreshToken = "refresh"

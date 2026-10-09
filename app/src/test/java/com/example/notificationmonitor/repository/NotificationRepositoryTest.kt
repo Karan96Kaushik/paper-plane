@@ -154,14 +154,14 @@ class NotificationRepositoryTest {
         val projectA = SupabaseConfig(
             enabled = true,
             projectUrl = "https://one.supabase.co",
-            apiKey = "key-a",
+            publishableKey = "sb_publishable_a",
             table = "notifications"
         )
         repository.saveSupabaseConfig(projectA)
         repository.markSupabaseSynced(listOf(first!!, second!!))
         assertTrue(repository.unsyncedNotifications(10).isEmpty())
 
-        repository.saveSupabaseConfig(projectA.copy(apiKey = "key-b"))
+        repository.saveSupabaseConfig(projectA.copy(publishableKey = "sb_publishable_b"))
         assertTrue(repository.unsyncedNotifications(10).isEmpty())
 
         repository.saveSupabaseConfig(
@@ -180,7 +180,7 @@ class NotificationRepositoryTest {
         val userA = SupabaseConfig(
             enabled = true,
             projectUrl = "https://one.supabase.co",
-            apiKey = "key-a",
+            publishableKey = "sb_publishable_a",
             table = "notifications",
             userId = USER_A,
             accessToken = "access-a",

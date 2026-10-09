@@ -2,6 +2,7 @@ package com.example.notificationmonitor.sync
 
 import com.example.notificationmonitor.settings.SupabaseConfig
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -9,7 +10,7 @@ class SupabaseAuthTest {
 
     private val project = SupabaseConfig(
         projectUrl = "https://abc.supabase.co",
-        apiKey = "anon-key",
+        publishableKey = "sb_publishable_test",
         table = "notifications"
     )
 
@@ -34,7 +35,7 @@ class SupabaseAuthTest {
     }
 
     @Test
-    fun signInPostsEmailAndPasswordWithTheAnonKey() {
+    fun signInSendsPublishableKeyOnApiKeyHeaderOnly() {
         val transport = RecordingAuthTransport(
             SupabaseHttpResponse(
                 200,
@@ -53,14 +54,30 @@ class SupabaseAuthTest {
         assertTrue(attempt is AuthAttempt.Success)
         val call = transport.posts.single()
         assertEquals("https://abc.supabase.co/auth/v1/token?grant_type=password", call.url)
-        assertEquals("anon-key", call.apiKey)
-        assertEquals("anon-key", call.bearerToken)
+        assertEquals("sb_publishable_test", call.publishableKey)
+        assertNull(call.authorizationBearer)
         assertEquals(false, call.preferMinimal)
         assertTrue(call.body.contains(""""email":"ada@example.com""""))
         assertTrue(call.body.contains(""""password":"s3cret""""))
         val session = (attempt as AuthAttempt.Success).session
         assertEquals(USER_ID, session.userId)
         assertEquals(1_000L + 3_600_000L, session.expiresAtMillis)
+    }
+
+    @Test
+    fun legacyJwtPublishableKeyStillSendsBearerOnAuth() {
+        val legacy = project.copy(publishableKey = LEGACY_ANON_JWT)
+        val transport = RecordingAuthTransport(
+            SupabaseHttpResponse(
+                200,
+                """
+                {"access_token":"new-access","refresh_token":"new-refresh","expires_in":60,
+                "user":{"id":"$USER_ID","email":"ada@example.com"}}
+                """.trimIndent()
+            )
+        )
+        SupabaseAuth(transport).signIn(legacy, "ada@example.com", "pw", 0L)
+        assertEquals(LEGACY_ANON_JWT, transport.posts.single().authorizationBearer)
     }
 
     @Test
@@ -93,6 +110,7 @@ class SupabaseAuthTest {
         val call = transport.posts.single()
         assertEquals("https://abc.supabase.co/auth/v1/token?grant_type=refresh_token", call.url)
         assertTrue(call.body.contains(""""refresh_token":"stored-refresh""""))
+        assertNull(call.authorizationBearer)
         val session = (attempt as AuthAttempt.Success).session
         assertEquals("new-access", session.accessToken)
         assertEquals(5_000L + 1_800_000L, session.expiresAtMillis)
@@ -100,6 +118,8 @@ class SupabaseAuthTest {
 
     companion object {
         private const val USER_ID = "11111111-1111-4111-8111-111111111111"
+        private const val LEGACY_ANON_JWT =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSJ9.sig"
     }
 }
 
@@ -110,24 +130,28 @@ private class RecordingAuthTransport(
 
     override fun post(
         url: String,
-        apiKey: String,
-        bearerToken: String,
+        publishableKey: String,
         body: String,
+        authorizationBearer: String?,
         preferMinimal: Boolean
     ): SupabaseHttpResponse {
-        posts += AuthCall(url, apiKey, bearerToken, body, preferMinimal)
+        posts += AuthCall(url, publishableKey, body, authorizationBearer, preferMinimal)
         return response
     }
 
-    override fun get(url: String, apiKey: String, bearerToken: String): SupabaseHttpResponse {
+    override fun get(
+        url: String,
+        publishableKey: String,
+        authorizationBearer: String?
+    ): SupabaseHttpResponse {
         return response
     }
 }
 
 private data class AuthCall(
     val url: String,
-    val apiKey: String,
-    val bearerToken: String,
+    val publishableKey: String,
     val body: String,
+    val authorizationBearer: String?,
     val preferMinimal: Boolean
 )

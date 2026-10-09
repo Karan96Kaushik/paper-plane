@@ -6,13 +6,17 @@ import java.net.URL
 internal interface SupabaseTransport {
     fun post(
         url: String,
-        apiKey: String,
-        bearerToken: String,
+        publishableKey: String,
         body: String,
+        authorizationBearer: String? = null,
         preferMinimal: Boolean = true
     ): SupabaseHttpResponse
 
-    fun get(url: String, apiKey: String, bearerToken: String): SupabaseHttpResponse
+    fun get(
+        url: String,
+        publishableKey: String,
+        authorizationBearer: String?
+    ): SupabaseHttpResponse
 }
 
 internal data class SupabaseHttpResponse(
@@ -25,20 +29,23 @@ internal data class SupabaseHttpResponse(
 internal class HttpSupabaseTransport : SupabaseTransport {
     override fun post(
         url: String,
-        apiKey: String,
-        bearerToken: String,
+        publishableKey: String,
         body: String,
+        authorizationBearer: String?,
         preferMinimal: Boolean
-    ): SupabaseHttpResponse = exchange("POST", url, apiKey, bearerToken, body, preferMinimal)
+    ): SupabaseHttpResponse = exchange("POST", url, publishableKey, authorizationBearer, body, preferMinimal)
 
-    override fun get(url: String, apiKey: String, bearerToken: String): SupabaseHttpResponse =
-        exchange("GET", url, apiKey, bearerToken, null, preferMinimal = false)
+    override fun get(
+        url: String,
+        publishableKey: String,
+        authorizationBearer: String?
+    ): SupabaseHttpResponse = exchange("GET", url, publishableKey, authorizationBearer, null, preferMinimal = false)
 
     private fun exchange(
         method: String,
         url: String,
-        apiKey: String,
-        bearerToken: String,
+        publishableKey: String,
+        authorizationBearer: String?,
         body: String?,
         preferMinimal: Boolean
     ): SupabaseHttpResponse {
@@ -48,8 +55,10 @@ internal class HttpSupabaseTransport : SupabaseTransport {
             connection.connectTimeout = CONNECT_TIMEOUT_MS
             connection.readTimeout = READ_TIMEOUT_MS
             connection.instanceFollowRedirects = false
-            connection.setRequestProperty("apikey", apiKey)
-            connection.setRequestProperty("Authorization", "Bearer $bearerToken")
+            connection.setRequestProperty("apikey", publishableKey)
+            if (!authorizationBearer.isNullOrBlank()) {
+                connection.setRequestProperty("Authorization", "Bearer $authorizationBearer")
+            }
             connection.setRequestProperty("Accept", "application/json")
             if (body != null) {
                 connection.doOutput = true

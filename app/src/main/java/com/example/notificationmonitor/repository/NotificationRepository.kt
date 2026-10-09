@@ -138,7 +138,7 @@ class NotificationRepository(
     suspend fun saveSupabaseConfig(config: SupabaseConfig) {
         val previous = preferences.currentSupabaseConfig()
         val projectChanged = previous.normalizedUrl() != config.normalizedUrl() ||
-            previous.normalizedApiKey() != config.normalizedApiKey()
+            previous.normalizedPublishableKey() != config.normalizedPublishableKey()
         val saved = if (projectChanged) {
             config.clearedSession()
         } else {

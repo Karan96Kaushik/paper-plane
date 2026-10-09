@@ -83,7 +83,7 @@ fun SettingsScreen(
     var retentionExpanded by remember { mutableStateOf(false) }
     var supabaseEnabled by remember { mutableStateOf(false) }
     var supabaseUrl by remember { mutableStateOf("") }
-    var supabaseApiKey by remember { mutableStateOf("") }
+    var supabasePublishableKey by remember { mutableStateOf("") }
     var supabaseTable by remember { mutableStateOf(SupabaseConfig.DEFAULT_TABLE) }
     var supabaseEmail by remember { mutableStateOf("") }
     var supabasePassword by remember { mutableStateOf("") }
@@ -101,7 +101,7 @@ fun SettingsScreen(
         val saved = repository.currentSupabaseConfig()
         supabaseEnabled = saved.enabled
         supabaseUrl = saved.projectUrl
-        supabaseApiKey = saved.apiKey
+        supabasePublishableKey = saved.publishableKey
         supabaseTable = saved.table
         supabaseEmail = saved.email
     }
@@ -316,9 +316,10 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = supabaseApiKey,
-                    onValueChange = { supabaseApiKey = it },
-                    label = { Text("Anon key") },
+                    value = supabasePublishableKey,
+                    onValueChange = { supabasePublishableKey = it },
+                    label = { Text("Publishable key") },
+                    placeholder = { Text("sb_publishable_...") },
                     singleLine = true,
                     visualTransformation = if (supabaseKeyVisible) {
                         VisualTransformation.None
@@ -381,7 +382,7 @@ fun SettingsScreen(
                         val draft = supabaseDraft(
                             enabled = supabaseEnabled,
                             projectUrl = supabaseUrl,
-                            apiKey = supabaseApiKey,
+                            publishableKey = supabasePublishableKey,
                             table = supabaseTable,
                             email = supabaseEmail,
                             saved = savedSupabase
@@ -426,7 +427,7 @@ fun SettingsScreen(
                     }
                 }
                 Text(
-                    text = "The anon key and session stay on this device. The password is not saved. Rows are inserted for the signed-in user, with columns user_id, local_id, device_id, package_name, app_name, title, text, sub_text, big_text, category, notification_key, posted_at, received_at, is_ongoing, and is_clearable.",
+                    text = "The publishable key and session stay on this device. The password is not saved. Use sb_publishable_... from Settings → API Keys in Supabase. Rows are inserted for the signed-in user, with columns user_id, local_id, device_id, package_name, app_name, title, text, sub_text, big_text, category, notification_key, posted_at, received_at, is_ongoing, and is_clearable.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -435,7 +436,7 @@ fun SettingsScreen(
                         val draft = supabaseDraft(
                             enabled = supabaseEnabled,
                             projectUrl = supabaseUrl,
-                            apiKey = supabaseApiKey,
+                            publishableKey = supabasePublishableKey,
                             table = supabaseTable,
                             email = supabaseEmail,
                             saved = savedSupabase
@@ -474,7 +475,7 @@ fun SettingsScreen(
                         val draft = supabaseDraft(
                             enabled = supabaseEnabled,
                             projectUrl = supabaseUrl,
-                            apiKey = supabaseApiKey,
+                            publishableKey = supabasePublishableKey,
                             table = supabaseTable,
                             email = supabaseEmail,
                             saved = savedSupabase
@@ -578,7 +579,7 @@ fun SettingsScreen(
 private fun supabaseDraft(
     enabled: Boolean,
     projectUrl: String,
-    apiKey: String,
+    publishableKey: String,
     table: String,
     email: String,
     saved: SupabaseConfig
@@ -586,13 +587,13 @@ private fun supabaseDraft(
     val draft = SupabaseConfig(
         enabled = enabled,
         projectUrl = projectUrl,
-        apiKey = apiKey,
+        publishableKey = publishableKey,
         table = table.trim().ifBlank { SupabaseConfig.DEFAULT_TABLE },
         email = email
     )
     val sameProject = draft.normalizedUrl() != null &&
         draft.normalizedUrl() == saved.normalizedUrl() &&
-        draft.normalizedApiKey() == saved.normalizedApiKey()
+        draft.normalizedPublishableKey() == saved.normalizedPublishableKey()
     return if (sameProject) {
         draft.copy(
             accountEmail = saved.accountEmail,

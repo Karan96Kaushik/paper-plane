@@ -59,14 +59,14 @@ class SupabasePublisher internal constructor(
             )
         val url = ready.destination()?.let { "$it?limit=0" }
             ?: return SupabaseOutcome.Failure(statusCode = null, message = "Enter the Supabase project URL.")
-        val apiKey = ready.normalizedApiKey()
-            ?: return SupabaseOutcome.Failure(statusCode = null, message = "Enter the anon key.")
+        val publishableKey = ready.normalizedPublishableKey()
+            ?: return SupabaseOutcome.Failure(statusCode = null, message = "Enter the publishable key.")
         val bearer = ready.session()?.accessToken
             ?: return SupabaseOutcome.Failure(
                 statusCode = null,
                 message = "Sign in with the Supabase user that should receive notifications."
             )
-        val response = transport.get(url, apiKey, bearer)
+        val response = transport.get(url, publishableKey, bearer)
         return if (response.isSuccessful) {
             SupabaseOutcome.Success(count = 0, detail = "Connected.")
         } else {
@@ -152,12 +152,17 @@ class SupabasePublisher internal constructor(
     ): SupabaseHttpResponse {
         val url = config.destination()
             ?: return SupabaseHttpResponse(0, null)
-        val apiKey = config.normalizedApiKey()
+        val publishableKey = config.normalizedPublishableKey()
             ?: return SupabaseHttpResponse(0, null)
         val session = config.session()
             ?: return SupabaseHttpResponse(0, null)
         val body = notificationPayloadArray(notifications, deviceId, session.userId)
-        return transport.post(url, apiKey, session.accessToken, body)
+        return transport.post(
+            url = url,
+            publishableKey = publishableKey,
+            body = body,
+            authorizationBearer = session.accessToken
+        )
     }
 
     private suspend fun refreshIfNeeded(config: SupabaseConfig): SupabaseConfig? {

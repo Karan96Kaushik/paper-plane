@@ -5,7 +5,7 @@ import java.net.URI
 data class SupabaseConfig(
     val enabled: Boolean = false,
     val projectUrl: String = "",
-    val apiKey: String = "",
+    val publishableKey: String = "",
     val table: String = DEFAULT_TABLE,
     val email: String = "",
     val accountEmail: String = "",
@@ -21,10 +21,17 @@ data class SupabaseConfig(
         return value.takeIf { TABLE_PATTERN.matches(it) }
     }
 
-    fun normalizedApiKey(): String? {
-        val value = apiKey.trim()
+    fun normalizedPublishableKey(): String? {
+        val value = publishableKey.trim()
         if (value.isEmpty() || value.any { it.isISOControl() }) return null
+        if (value.startsWith("sb_secret_", ignoreCase = true)) return null
         return value
+    }
+
+    /** Legacy JWT-based anon keys still need Bearer on auth token requests. */
+    fun authAuthorizationBearer(): String? {
+        val key = normalizedPublishableKey() ?: return null
+        return key.takeIf { isLegacyJwtApiKey(it) }
     }
 
     /** Project URL plus table. Null when either value is not usable. */
@@ -80,8 +87,14 @@ data class SupabaseConfig(
         if (normalizedUrl() == null) {
             return "Use an https project URL like https://your-project.supabase.co."
         }
-        if (normalizedApiKey() == null) {
-            return "Enter the anon key."
+        if (publishableKey.isBlank()) {
+            return "Enter the publishable key."
+        }
+        if (publishableKey.trim().startsWith("sb_secret_", ignoreCase = true)) {
+            return "Use the publishable key (sb_publishable_...), not a secret key."
+        }
+        if (normalizedPublishableKey() == null) {
+            return "Enter the publishable key."
         }
         if (normalizedTable() == null) {
             return "Table name can only use letters, numbers, and underscores."
@@ -119,6 +132,10 @@ data class SupabaseConfig(
             val value = raw.trim()
             if (value.isEmpty() || value.any { it.isISOControl() }) return null
             return value
+        }
+
+        fun isLegacyJwtApiKey(key: String): Boolean {
+            return key.startsWith("eyJ") && key.count { it == '.' } >= 2
         }
 
         fun normalizeProjectUrl(raw: String): String? {

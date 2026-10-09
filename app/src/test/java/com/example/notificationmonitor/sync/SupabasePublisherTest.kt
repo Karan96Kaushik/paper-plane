@@ -12,7 +12,7 @@ class SupabasePublisherTest {
     private val ready = SupabaseConfig(
         enabled = true,
         projectUrl = "https://abc.supabase.co/",
-        apiKey = "  anon-key  ",
+        publishableKey = "  sb_publishable_test  ",
         table = "notifications",
         email = "ada@example.com",
         accountEmail = "ada@example.com",
@@ -40,8 +40,8 @@ class SupabasePublisherTest {
         val call = transport.posts.single()
         val body = checkNotNull(call.body)
         assertEquals("https://abc.supabase.co/rest/v1/notifications", call.url)
-        assertEquals("anon-key", call.apiKey)
-        assertEquals("access-token", call.bearerToken)
+        assertEquals("sb_publishable_test", call.publishableKey)
+        assertEquals("access-token", call.authorizationBearer)
         assertTrue(body.startsWith("["))
         assertTrue(body.contains(""""local_id":4"""))
         assertTrue(body.contains(""""user_id":"$USER_ID""""))
@@ -101,8 +101,8 @@ class SupabasePublisherTest {
         assertEquals("Connected.", outcome.userMessage())
         val call = transport.gets.single()
         assertEquals("https://abc.supabase.co/rest/v1/notifications?limit=0", call.url)
-        assertEquals("anon-key", call.apiKey)
-        assertEquals("access-token", call.bearerToken)
+        assertEquals("sb_publishable_test", call.publishableKey)
+        assertEquals("access-token", call.authorizationBearer)
     }
 
     @Test
@@ -203,8 +203,8 @@ class SupabasePublisherTest {
 
 private data class RecordedCall(
     val url: String,
-    val apiKey: String,
-    val bearerToken: String,
+    val publishableKey: String,
+    val authorizationBearer: String?,
     val body: String?
 )
 
@@ -215,17 +215,21 @@ private class RecordingTransport : SupabaseTransport {
 
     override fun post(
         url: String,
-        apiKey: String,
-        bearerToken: String,
+        publishableKey: String,
         body: String,
+        authorizationBearer: String?,
         preferMinimal: Boolean
     ): SupabaseHttpResponse {
-        posts += RecordedCall(url, apiKey, bearerToken, body)
+        posts += RecordedCall(url, publishableKey, authorizationBearer, body)
         return response
     }
 
-    override fun get(url: String, apiKey: String, bearerToken: String): SupabaseHttpResponse {
-        gets += RecordedCall(url, apiKey, bearerToken, null)
+    override fun get(
+        url: String,
+        publishableKey: String,
+        authorizationBearer: String?
+    ): SupabaseHttpResponse {
+        gets += RecordedCall(url, publishableKey, authorizationBearer, null)
         return response
     }
 }
