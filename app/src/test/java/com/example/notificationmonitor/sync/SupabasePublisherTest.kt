@@ -38,14 +38,15 @@ class SupabasePublisherTest {
         val outcome = publisher.push(sample(4, title = "Hello"))
         assertTrue(outcome is SupabaseOutcome.Success)
         val call = transport.posts.single()
+        val body = checkNotNull(call.body)
         assertEquals("https://abc.supabase.co/rest/v1/notifications", call.url)
         assertEquals("anon-key", call.apiKey)
         assertEquals("access-token", call.bearerToken)
-        assertTrue(call.body.startsWith("["))
-        assertTrue(call.body.contains(""""local_id":4"""))
-        assertTrue(call.body.contains(""""user_id":"$USER_ID""""))
-        assertTrue(call.body.contains(""""title":"Hello""""))
-        assertTrue(call.body.contains(""""device_id":"device-1""""))
+        assertTrue(body.startsWith("["))
+        assertTrue(body.contains(""""local_id":4"""))
+        assertTrue(body.contains(""""user_id":"$USER_ID""""))
+        assertTrue(body.contains(""""title":"Hello""""))
+        assertTrue(body.contains(""""device_id":"device-1""""))
     }
 
     @Test
