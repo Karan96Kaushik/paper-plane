@@ -173,6 +173,34 @@ class NotificationRepositoryTest {
         )
     }
 
+    @Test
+    fun supabaseSyncResetsWhenSignedInUserChanges() = runTest {
+        val id = repository.insertIfAllowed(sampleNotification(key = "a", postedAt = 1L))
+        assertNotNull(id)
+        val userA = SupabaseConfig(
+            enabled = true,
+            projectUrl = "https://one.supabase.co",
+            apiKey = "key-a",
+            table = "notifications",
+            userId = USER_A,
+            accessToken = "access-a",
+            refreshToken = "refresh-a",
+            accessTokenExpiresAt = Long.MAX_VALUE
+        )
+        repository.replaceSupabaseConfig(userA)
+        repository.markSupabaseSynced(listOf(id!!))
+        assertTrue(repository.unsyncedNotifications(10).isEmpty())
+
+        repository.replaceSupabaseConfig(
+            userA.copy(
+                userId = USER_B,
+                accessToken = "access-b",
+                refreshToken = "refresh-b"
+            )
+        )
+        assertEquals(listOf(id), repository.unsyncedNotifications(10).map { it.id })
+    }
+
     private fun sampleNotification(
         packageName: String = "com.example.app",
         title: String? = "Title",
@@ -192,4 +220,9 @@ class NotificationRepositoryTest {
         isOngoing = false,
         isClearable = true
     )
+
+    companion object {
+        private const val USER_A = "11111111-1111-4111-8111-111111111111"
+        private const val USER_B = "22222222-2222-4222-8222-222222222222"
+    }
 }

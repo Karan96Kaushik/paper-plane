@@ -71,6 +71,33 @@ class SupabaseAuthTest {
         assertEquals("Email or password was rejected.", (attempt as AuthAttempt.Failure).message)
     }
 
+    @Test
+    fun refreshPostsTheStoredRefreshToken() {
+        val signedIn = project.copy(
+            userId = USER_ID,
+            accessToken = "old-access",
+            refreshToken = "stored-refresh",
+            accessTokenExpiresAt = 0L
+        )
+        val transport = RecordingAuthTransport(
+            SupabaseHttpResponse(
+                200,
+                """
+                {"access_token":"new-access","refresh_token":"new-refresh","expires_in":1800,
+                "user":{"id":"$USER_ID","email":"ada@example.com"}}
+                """.trimIndent()
+            )
+        )
+        val attempt = SupabaseAuth(transport).refresh(signedIn, nowMillis = 5_000L)
+        assertTrue(attempt is AuthAttempt.Success)
+        val call = transport.posts.single()
+        assertEquals("https://abc.supabase.co/auth/v1/token?grant_type=refresh_token", call.url)
+        assertTrue(call.body.contains(""""refresh_token":"stored-refresh""""))
+        val session = (attempt as AuthAttempt.Success).session
+        assertEquals("new-access", session.accessToken)
+        assertEquals(5_000L + 1_800_000L, session.expiresAtMillis)
+    }
+
     companion object {
         private const val USER_ID = "11111111-1111-4111-8111-111111111111"
     }

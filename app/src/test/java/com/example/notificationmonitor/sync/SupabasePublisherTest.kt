@@ -51,8 +51,9 @@ class SupabasePublisherTest {
 
     @Test
     fun reportsHttpFailureWithoutMarkingRows() = runTest {
+        // Use 403, not 401: a 401 triggers a token refresh and a second POST.
         val transport = RecordingTransport().apply {
-            response = SupabaseHttpResponse(401, """{"message":"bad key"}""")
+            response = SupabaseHttpResponse(403, """{"message":"forbidden"}""")
         }
         val publisher = publisher(ready, transport, pageSize = 2)
         val marked = mutableListOf<Long>()
@@ -63,7 +64,7 @@ class SupabasePublisherTest {
         )
         assertTrue(outcome is SupabaseOutcome.Failure)
         val failure = outcome as SupabaseOutcome.Failure
-        assertEquals(401, failure.statusCode)
+        assertEquals(403, failure.statusCode)
         assertEquals(0, failure.sent)
         assertTrue(failure.userMessage().contains("Sign in"))
         assertTrue(marked.isEmpty())
@@ -111,6 +112,61 @@ class SupabasePublisherTest {
         val outcome = publisher.test(ready.copy(projectUrl = "http://insecure.example"))
         assertTrue(outcome is SupabaseOutcome.Failure)
         assertTrue(transport.gets.isEmpty())
+    }
+
+    @Test
+    fun pushPendingRequiresSignedInUser() = runTest {
+        val transport = RecordingTransport()
+        val unsigned = ready.copy(
+            userId = "",
+            accessToken = "",
+            refreshToken = "",
+            accessTokenExpiresAt = 0L
+        )
+        val publisher = publisher(unsigned, transport)
+        val outcome = publisher.pushPending(
+            loadPage = { listOf(sample(1)) },
+            markSynced = { }
+        )
+        assertTrue(outcome is SupabaseOutcome.Failure)
+        assertTrue((outcome as SupabaseOutcome.Failure).message.contains("Sign in"))
+        assertTrue(transport.posts.isEmpty())
+    }
+
+    @Test
+    fun testConnectionRequiresSignedInUser() = runTest {
+        val transport = RecordingTransport()
+        val unsigned = ready.copy(
+            userId = "",
+            accessToken = "",
+            refreshToken = "",
+            accessTokenExpiresAt = 0L
+        )
+        val publisher = publisher(unsigned, transport)
+        val outcome = publisher.test(unsigned)
+        assertTrue(outcome is SupabaseOutcome.Failure)
+        assertTrue((outcome as SupabaseOutcome.Failure).message.contains("Sign in"))
+        assertTrue(transport.gets.isEmpty())
+    }
+
+    @Test
+    fun unauthorizedInsertRetriesRefreshBeforeFailure() = runTest {
+        val transport = RecordingTransport().apply {
+            response = SupabaseHttpResponse(401, """{"message":"jwt expired"}""")
+        }
+        val publisher = publisher(ready, transport, pageSize = 2)
+        val marked = mutableListOf<Long>()
+        val outcome = publisher.pushPending(
+            loadPage = { listOf(sample(1), sample(2)) },
+            markSynced = { ids -> marked += ids }
+        )
+        assertTrue(outcome is SupabaseOutcome.Failure)
+        val failure = outcome as SupabaseOutcome.Failure
+        assertEquals(401, failure.statusCode)
+        assertTrue(marked.isEmpty())
+        assertEquals(2, transport.posts.size)
+        assertTrue(transport.posts[0].url.endsWith("/rest/v1/notifications"))
+        assertTrue(transport.posts[1].url.contains("/auth/v1/token"))
     }
 
     private fun publisher(
