@@ -8,7 +8,9 @@ internal sealed class JsonValue {
 }
 
 internal fun parseJsonObject(input: String): Map<String, JsonValue>? {
-    return (JsonParser(input).parseValue() as? JsonValue.Obj)?.fields
+    val trimmed = input.trim().removePrefix("\uFEFF")
+    if (trimmed.isEmpty()) return null
+    return (JsonParser(trimmed).parseValue() as? JsonValue.Obj)?.fields
 }
 
 private class JsonParser(private val input: String) {

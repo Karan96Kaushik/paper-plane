@@ -48,15 +48,23 @@ internal class SupabaseAuth(
             preferMinimal = false
         )
         if (!response.isSuccessful) {
-            SupabaseLog.authHttpFailed(response.statusCode, "password")
+            SupabaseLog.authHttpFailed(
+                response.statusCode,
+                "password",
+                authBodyPreview(response.body.orEmpty())
+            )
             return AuthAttempt.Failure(signInFailure(response))
         }
-        val session = parseSession(response.body, nowMillis)
-        if (session == null) {
-            SupabaseLog.unexpectedAuthResponse("password grant body could not be parsed")
-            return AuthAttempt.Failure("Supabase returned an unexpected sign-in response.")
+        return when (
+            val parsed = parseAuthSession(response.body, nowMillis, normalizedEmail)
+        ) {
+            is AuthSessionParse.Success ->
+                AuthAttempt.Success(parsed.session.copy(email = parsed.session.email.ifBlank { normalizedEmail }))
+            is AuthSessionParse.Failure -> {
+                SupabaseLog.unexpectedAuthResponse("password grant: ${parsed.logDetail}")
+                AuthAttempt.Failure(parsed.userMessage)
+            }
         }
-        return AuthAttempt.Success(session.copy(email = session.email.ifBlank { normalizedEmail }))
     }
 
     fun refresh(config: SupabaseConfig, nowMillis: Long): AuthAttempt {
@@ -76,60 +84,45 @@ internal class SupabaseAuth(
             preferMinimal = false
         )
         if (!response.isSuccessful) {
-            SupabaseLog.sessionRefreshHttpFailed(response.statusCode)
-            return AuthAttempt.Failure("Sign in again. The saved session expired.")
+            SupabaseLog.sessionRefreshHttpFailed(
+                response.statusCode,
+                authBodyPreview(response.body.orEmpty())
+            )
+            return AuthAttempt.Failure(refreshFailure(response))
         }
-        val refreshed = parseSession(response.body, nowMillis)
-        if (refreshed == null) {
-            SupabaseLog.unexpectedAuthResponse("refresh grant body could not be parsed")
-            return AuthAttempt.Failure("Sign in again. The saved session expired.")
+        return when (val parsed = parseAuthSession(response.body, nowMillis, session.email)) {
+            is AuthSessionParse.Success -> AuthAttempt.Success(
+                parsed.session.copy(email = parsed.session.email.ifBlank { session.email })
+            )
+            is AuthSessionParse.Failure -> {
+                SupabaseLog.unexpectedAuthResponse("refresh grant: ${parsed.logDetail}")
+                AuthAttempt.Failure(parsed.userMessage.ifBlank { "Sign in again. The saved session expired." })
+            }
         }
-        return AuthAttempt.Success(
-            refreshed.copy(email = refreshed.email.ifBlank { session.email })
-        )
     }
 
     private fun signInFailure(response: SupabaseHttpResponse): String {
+        val fields = response.body?.let(::parseJsonObject)
+        val detail = fields?.let(::authJsonUserMessage)
         return when (response.statusCode) {
             0 -> "Could not reach Supabase."
-            400, 401 -> "Email or password was rejected."
+            400, 401 -> detail ?: "Email or password was rejected."
             else -> SupabasePublisher.failureMessage(response.statusCode, response.body)
         }
     }
 
+    private fun refreshFailure(response: SupabaseHttpResponse): String {
+        val detail = response.body?.let(::parseJsonObject)?.let(::authJsonUserMessage)
+        return detail ?: "Sign in again. The saved session expired."
+    }
+
     companion object {
         internal fun parseSession(body: String?, nowMillis: Long): SupabaseSession? {
-            val fields = body?.let(::parseJsonObject) ?: return null
-            val access = (fields["access_token"] as? JsonValue.Str)?.value ?: return null
-            val refresh = (fields["refresh_token"] as? JsonValue.Str)?.value ?: return null
-            val user = (fields["user"] as? JsonValue.Obj)?.fields ?: return null
-            val userId = (user["id"] as? JsonValue.Str)?.value ?: return null
-            if (SupabaseConfig.normalizedSecret(access) == null) return null
-            if (SupabaseConfig.normalizedSecret(refresh) == null) return null
-            val normalizedUser = userId.trim()
-            if (!USER_ID_PATTERN.matches(normalizedUser)) return null
-            val email = (user["email"] as? JsonValue.Str)?.value?.trim().orEmpty()
-            return SupabaseSession(
-                userId = normalizedUser,
-                email = email,
-                accessToken = access.trim(),
-                refreshToken = refresh.trim(),
-                expiresAtMillis = expiresAtMillis(fields, nowMillis)
-            )
-        }
-
-        private fun expiresAtMillis(fields: Map<String, JsonValue>, nowMillis: Long): Long {
-            val expiresAt = (fields["expires_at"] as? JsonValue.Num)?.value?.toLongOrNull()
-            if (expiresAt != null) {
-                return if (expiresAt > 10_000_000_000L) expiresAt else expiresAt * 1000
+            return when (val parsed = parseAuthSession(body, nowMillis)) {
+                is AuthSessionParse.Success -> parsed.session
+                is AuthSessionParse.Failure -> null
             }
-            val expiresIn = (fields["expires_in"] as? JsonValue.Num)?.value?.toLongOrNull()
-            if (expiresIn != null) return nowMillis + expiresIn * 1000
-            return nowMillis + 3_600_000
         }
-
-        private val USER_ID_PATTERN =
-            Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     }
 }
 
