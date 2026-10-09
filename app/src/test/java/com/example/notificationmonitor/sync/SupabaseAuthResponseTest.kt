@@ -84,7 +84,7 @@ class SupabaseAuthResponseTest {
         private const val USER_ID = "11111111-1111-4111-8111-111111111111"
         private const val ACCESS_JWT =
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
-                "eyJzdWIiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTExIiwiZW1haWwiOiJhZGFAZXhhbXBsZS5jb20ifQ." +
+                "eyJzdWIiOiIxMTExMTExMS0xMTExLTQxMTEtODExMS0xMTExMTExMTExMTEiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSJ9." +
                 "signature"
     }
 }

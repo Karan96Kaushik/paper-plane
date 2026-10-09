@@ -111,7 +111,7 @@ class SupabaseAuthTest {
         val transport = RecordingAuthTransport(SupabaseHttpResponse(400, """{"error_description":"Invalid login credentials"}"""))
         val attempt = SupabaseAuth(transport).signIn(project, "ada@example.com", "nope", 0L)
         assertTrue(attempt is AuthAttempt.Failure)
-        assertEquals("Email or password was rejected.", (attempt as AuthAttempt.Failure).message)
+        assertEquals("Invalid login credentials", (attempt as AuthAttempt.Failure).message)
     }
 
     @Test
