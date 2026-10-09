@@ -391,7 +391,13 @@ fun SettingsScreen(
                         scope.launch {
                             supabaseBusy = true
                             val outcome = withContext(Dispatchers.IO) {
-                                supabasePublisher.signIn(draft, supabaseEmail, password)
+                                runSupabaseSignIn(
+                                    supabasePublisher = supabasePublisher,
+                                    repository = repository,
+                                    draft = draft,
+                                    email = supabaseEmail,
+                                    rawPassword = password
+                                ).first
                             }
                             if (outcome is SupabaseOutcome.Success) {
                                 supabasePassword = ""
@@ -441,23 +447,47 @@ fun SettingsScreen(
                             email = supabaseEmail,
                             saved = savedSupabase
                         )
-                        if (draft.enabled) {
-                            val error = draft.validationError()
-                            if (error != null) {
-                                supabaseStatus = error
-                                return@Button
-                            }
-                        } else if (draft.projectUrl.isNotBlank() && draft.normalizedUrl() == null) {
-                            supabaseStatus = "Use an https project URL like https://your-project.supabase.co."
-                            return@Button
-                        } else if (draft.normalizedTable() == null) {
-                            supabaseStatus = "Table name can only use letters, numbers, and underscores."
-                            return@Button
-                        }
                         scope.launch {
                             supabaseBusy = true
-                            repository.saveSupabaseConfig(draft)
-                            supabaseStatus = if (draft.enabled) {
+                            var readyDraft = draft
+                            if (readyDraft.enabled && readyDraft.session() == null &&
+                                SupabaseConfig.normalizeSignInPassword(supabasePassword) != null
+                            ) {
+                                val signIn = withContext(Dispatchers.IO) {
+                                    runSupabaseSignIn(
+                                        supabasePublisher = supabasePublisher,
+                                        repository = repository,
+                                        draft = readyDraft,
+                                        email = supabaseEmail,
+                                        rawPassword = supabasePassword
+                                    )
+                                }
+                                if (signIn.first is SupabaseOutcome.Failure) {
+                                    supabaseStatus = signIn.first.userMessage()
+                                    supabaseBusy = false
+                                    return@launch
+                                }
+                                supabasePassword = ""
+                                readyDraft = signIn.second
+                            }
+                            if (readyDraft.enabled) {
+                                val error = readyDraft.validationError()
+                                if (error != null) {
+                                    supabaseStatus = error
+                                    supabaseBusy = false
+                                    return@launch
+                                }
+                            } else if (readyDraft.projectUrl.isNotBlank() && readyDraft.normalizedUrl() == null) {
+                                supabaseStatus = "Use an https project URL like https://your-project.supabase.co."
+                                supabaseBusy = false
+                                return@launch
+                            } else if (readyDraft.normalizedTable() == null) {
+                                supabaseStatus = "Table name can only use letters, numbers, and underscores."
+                                supabaseBusy = false
+                                return@launch
+                            }
+                            repository.saveSupabaseConfig(readyDraft)
+                            supabaseStatus = if (readyDraft.enabled) {
                                 "Supabase settings saved. New notifications will be sent."
                             } else {
                                 "Supabase settings saved. Push is off."
@@ -574,6 +604,33 @@ fun SettingsScreen(
             }
         )
     }
+}
+
+private suspend fun runSupabaseSignIn(
+    supabasePublisher: SupabasePublisher,
+    repository: NotificationRepository,
+    draft: SupabaseConfig,
+    email: String,
+    rawPassword: String
+): Pair<SupabaseOutcome, SupabaseConfig> {
+    val password = SupabaseConfig.normalizeSignInPassword(rawPassword)
+    if (password == null) {
+        val message = SupabaseConfig.signInPasswordError(rawPassword)
+        return SupabaseOutcome.Failure(statusCode = null, message = message) to draft
+    }
+    val outcome = supabasePublisher.signIn(draft, email, password)
+    if (outcome !is SupabaseOutcome.Success) {
+        return outcome to draft
+    }
+    val signedInDraft = supabaseDraft(
+        enabled = draft.enabled,
+        projectUrl = draft.projectUrl,
+        publishableKey = draft.publishableKey,
+        table = draft.table,
+        email = draft.email,
+        saved = repository.currentSupabaseConfig()
+    )
+    return outcome to signedInDraft
 }
 
 private fun supabaseDraft(

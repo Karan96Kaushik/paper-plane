@@ -40,10 +40,14 @@ class SupabaseConfigTest {
             publishableKey = "sb_publishable_x"
         )
         assertFalse(config.isReady())
-        assertEquals(
-            "Sign in with the Supabase user that should receive notifications.",
-            config.validationError()
-        )
+        assertTrue(config.validationError()?.contains("Sign in with your Supabase email") == true)
+    }
+
+    @Test
+    fun normalizesSignInPasswordFromPaste() {
+        assertEquals("secret", SupabaseConfig.normalizeSignInPassword("secret\n"))
+        assertNull(SupabaseConfig.normalizeSignInPassword("   "))
+        assertNull(SupabaseConfig.normalizeSignInPassword("bad\npassword"))
     }
 
     @Test

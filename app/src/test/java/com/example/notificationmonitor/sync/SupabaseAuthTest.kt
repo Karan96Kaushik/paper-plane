@@ -81,6 +81,27 @@ class SupabaseAuthTest {
     }
 
     @Test
+    fun signInTrimsTrailingNewlineFromPassword() {
+        val transport = RecordingAuthTransport(
+            SupabaseHttpResponse(
+                200,
+                """
+                {"access_token":"new-access","refresh_token":"new-refresh","expires_in":3600,
+                "user":{"id":"$USER_ID","email":"ada@example.com"}}
+                """.trimIndent()
+            )
+        )
+        val attempt = SupabaseAuth(transport).signIn(
+            config = project,
+            email = "ada@example.com",
+            password = "s3cret\n",
+            nowMillis = 0L
+        )
+        assertTrue(attempt is AuthAttempt.Success)
+        assertTrue(transport.posts.single().body.contains(""""password":"s3cret""""))
+    }
+
+    @Test
     fun rejectedPasswordDoesNotReturnASession() {
         val transport = RecordingAuthTransport(SupabaseHttpResponse(400, """{"error_description":"Invalid login credentials"}"""))
         val attempt = SupabaseAuth(transport).signIn(project, "ada@example.com", "nope", 0L)

@@ -109,9 +109,27 @@ data class SupabaseConfig(
     fun validationError(): String? {
         projectError()?.let { return it }
         if (session() == null) {
-            return "Sign in with the Supabase user that should receive notifications."
+            return "Sign in with your Supabase email and password. The password is not stored—tap Sign in, or enter it and tap Save."
         }
         return null
+    }
+
+    /** Trims accidental whitespace from paste; does not persist the password. */
+    fun normalizeSignInPassword(raw: String): String? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+        if (trimmed.any { it.isISOControl() }) return null
+        return trimmed
+    }
+
+    fun signInPasswordError(raw: String): String {
+        if (raw.trim().isEmpty()) {
+            return "Enter the password, then tap Sign in (or Save with push enabled)."
+        }
+        if (raw.any { it.isISOControl() }) {
+            return "Password contains unsupported characters. Remove line breaks or hidden characters."
+        }
+        return "Enter the password, then tap Sign in (or Save with push enabled)."
     }
 
     companion object {

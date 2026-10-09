@@ -45,13 +45,19 @@ class SupabasePublisher internal constructor(
                 val label = attempt.session.email.ifBlank { email.trim() }
                 SupabaseOutcome.Success(count = 0, detail = "Signed in as $label.")
             }
-            is AuthAttempt.Failure -> SupabaseOutcome.Failure(statusCode = null, message = attempt.message)
+            is AuthAttempt.Failure -> {
+                SupabaseLog.signInBlocked(attempt.message)
+                SupabaseOutcome.Failure(statusCode = null, message = attempt.message)
+            }
         }
     }
 
     suspend fun test(config: SupabaseConfig): SupabaseOutcome {
         val error = config.validationError()
-        if (error != null) return SupabaseOutcome.Failure(statusCode = null, message = error)
+        if (error != null) {
+            SupabaseLog.validationBlocked(error)
+            return SupabaseOutcome.Failure(statusCode = null, message = error)
+        }
         val ready = refreshIfNeeded(config)
             ?: return SupabaseOutcome.Failure(
                 statusCode = null,
@@ -64,7 +70,7 @@ class SupabasePublisher internal constructor(
         val bearer = ready.session()?.accessToken
             ?: return SupabaseOutcome.Failure(
                 statusCode = null,
-                message = "Sign in with the Supabase user that should receive notifications."
+                message = ready.validationError() ?: "Sign in again."
             )
         val response = transport.get(url, publishableKey, bearer)
         return if (response.isSuccessful) {
@@ -88,6 +94,7 @@ class SupabasePublisher internal constructor(
         } else {
             val error = config.validationError()
             if (error != null) {
+                SupabaseLog.validationBlocked(error)
                 SupabaseOutcome.Failure(statusCode = null, message = error)
             } else {
                 drainPending(config, loadPage, markSynced)
@@ -126,7 +133,10 @@ class SupabasePublisher internal constructor(
         notifications: List<NotificationEntity>
     ): SupabaseOutcome {
         val error = config.validationError()
-        if (error != null) return SupabaseOutcome.Failure(statusCode = null, message = error)
+        if (error != null) {
+            SupabaseLog.validationBlocked(error)
+            return SupabaseOutcome.Failure(statusCode = null, message = error)
+        }
         val ready = refreshIfNeeded(config)
             ?: return SupabaseOutcome.Failure(
                 statusCode = null,

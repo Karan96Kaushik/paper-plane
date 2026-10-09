@@ -197,18 +197,19 @@ android {
 }
 
 afterEvaluate {
-    android.applicationVariants.configureEach { variant ->
-        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+    @Suppress("DEPRECATION")
+    android.applicationVariants.all { variant ->
+        val variantName = variant.name.replaceFirstChar { char -> char.uppercaseChar() }
         val buildType = variant.buildType.name
         val renameTask = tasks.register("renamePaperplaneApk$variantName") {
             doLast {
                 val versionName = variant.versionName ?: resolvedVersion.name
                 val versionCode = variant.versionCode
                 val targetName = "${paperplaneArtifactBase(versionName, versionCode, buildType)}.apk"
-                variant.outputs.forEach { output ->
+                for (output in variant.outputs) {
                     @Suppress("DEPRECATION")
                     val source = output.outputFile
-                    if (!source.exists()) return@forEach
+                    if (!source.exists()) continue
                     val target = source.parentFile.resolve(targetName)
                     if (target.exists()) {
                         target.delete()

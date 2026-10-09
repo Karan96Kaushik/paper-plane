@@ -13,6 +13,7 @@ import com.example.notificationmonitor.notification.NotificationType
 import com.example.notificationmonitor.settings.RetentionPeriod
 import com.example.notificationmonitor.settings.SupabaseConfig
 import com.example.notificationmonitor.settings.UserPreferences
+import com.example.notificationmonitor.sync.SupabaseLog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -140,6 +141,7 @@ class NotificationRepository(
         val projectChanged = previous.normalizedUrl() != config.normalizedUrl() ||
             previous.normalizedPublishableKey() != config.normalizedPublishableKey()
         val saved = if (projectChanged) {
+            SupabaseLog.projectCredentialsChanged()
             config.clearedSession()
         } else {
             config.copy(

@@ -77,7 +77,7 @@ class SupabaseNetworkSync(
                 markSynced = { ids -> repository.markSupabaseSynced(ids) }
             )) {
                 is SupabaseOutcome.Failure ->
-                    Log.w(TAG, "Supabase flush failed status=${outcome.statusCode}")
+                    Log.w(TAG, "Supabase flush failed status=${outcome.statusCode} ${outcome.message}")
                 SupabaseOutcome.Disabled -> Unit
                 is SupabaseOutcome.Success -> Unit
             }

@@ -13,11 +13,26 @@ internal class SupabaseAuth(
         nowMillis: Long
     ): AuthAttempt {
         val projectError = config.projectError()
-        if (projectError != null) return AuthAttempt.Failure(projectError)
+        if (projectError != null) {
+            SupabaseLog.signInBlocked("project: $projectError")
+            return AuthAttempt.Failure(projectError)
+        }
         val normalizedEmail = SupabaseConfig.normalizeEmail(email)
-            ?: return AuthAttempt.Failure("Enter the account email.")
-        if (password.isEmpty() || password.any { it.isISOControl() }) {
-            return AuthAttempt.Failure("Enter the password.")
+        if (normalizedEmail == null) {
+            SupabaseLog.signInBlocked("invalid email")
+            return AuthAttempt.Failure("Enter the account email.")
+        }
+        val normalizedPassword = SupabaseConfig.normalizeSignInPassword(password)
+        if (normalizedPassword == null) {
+            SupabaseLog.signInBlocked(
+                when {
+                    password.isEmpty() -> "password missing"
+                    password.trim().isEmpty() -> "password whitespace only"
+                    password.any { it.isISOControl() } -> "password has control characters"
+                    else -> "password invalid"
+                }
+            )
+            return AuthAttempt.Failure(SupabaseConfig.signInPasswordError(password))
         }
         val url = config.normalizedUrl() ?: return AuthAttempt.Failure("Enter the Supabase project URL.")
         val publishableKey = config.normalizedPublishableKey()
@@ -27,22 +42,29 @@ internal class SupabaseAuth(
             publishableKey = publishableKey,
             body = jsonObject(
                 "email" to normalizedEmail,
-                "password" to password
+                "password" to normalizedPassword
             ),
             authorizationBearer = config.authAuthorizationBearer(),
             preferMinimal = false
         )
         if (!response.isSuccessful) {
+            SupabaseLog.authHttpFailed(response.statusCode, "password")
             return AuthAttempt.Failure(signInFailure(response))
         }
         val session = parseSession(response.body, nowMillis)
-            ?: return AuthAttempt.Failure("Supabase returned an unexpected sign-in response.")
+        if (session == null) {
+            SupabaseLog.unexpectedAuthResponse("password grant body could not be parsed")
+            return AuthAttempt.Failure("Supabase returned an unexpected sign-in response.")
+        }
         return AuthAttempt.Success(session.copy(email = session.email.ifBlank { normalizedEmail }))
     }
 
     fun refresh(config: SupabaseConfig, nowMillis: Long): AuthAttempt {
         val session = config.session()
-            ?: return AuthAttempt.Failure("Sign in with the Supabase user that should receive notifications.")
+        if (session == null) {
+            SupabaseLog.sessionRefreshBlocked("no saved session")
+            return AuthAttempt.Failure(config.validationError() ?: "Sign in again.")
+        }
         val url = config.normalizedUrl() ?: return AuthAttempt.Failure("Enter the Supabase project URL.")
         val publishableKey = config.normalizedPublishableKey()
             ?: return AuthAttempt.Failure("Enter the publishable key.")
@@ -54,10 +76,14 @@ internal class SupabaseAuth(
             preferMinimal = false
         )
         if (!response.isSuccessful) {
+            SupabaseLog.sessionRefreshHttpFailed(response.statusCode)
             return AuthAttempt.Failure("Sign in again. The saved session expired.")
         }
         val refreshed = parseSession(response.body, nowMillis)
-            ?: return AuthAttempt.Failure("Sign in again. The saved session expired.")
+        if (refreshed == null) {
+            SupabaseLog.unexpectedAuthResponse("refresh grant body could not be parsed")
+            return AuthAttempt.Failure("Sign in again. The saved session expired.")
+        }
         return AuthAttempt.Success(
             refreshed.copy(email = refreshed.email.ifBlank { session.email })
         )
