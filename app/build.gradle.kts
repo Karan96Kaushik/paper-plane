@@ -107,6 +107,14 @@ fun resolveAppVersion(): com.paperplane.semver.ResolvedVersion {
 
 val resolvedVersion = resolveAppVersion()
 
+fun sanitizeVersionForFileName(version: String): String =
+    version.replace(Regex("[^A-Za-z0-9._-]"), "-")
+
+fun paperplaneArtifactBase(versionName: String, versionCode: Int, buildType: String): String {
+    val safeVersion = sanitizeVersionForFileName(versionName)
+    return "paperplane-${safeVersion}-v${versionCode}-${buildType}"
+}
+
 android {
     namespace = "com.example.notificationmonitor"
     compileSdk = prop("compileSdkVersion", "35").toInt()
@@ -184,6 +192,36 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val baseName = provider {
+                val versionName = variant.versionName.orNull ?: resolvedVersion.name
+                val versionCode = variant.versionCode.orNull ?: resolvedVersion.code
+                paperplaneArtifactBase(versionName, versionCode, variant.buildType)
+            }
+            output.outputFileName.set(baseName.map { "$it.apk" })
+        }
+    }
+}
+
+tasks.named("bundleRelease").configure {
+    doLast {
+        val versionName = resolvedVersion.name
+        val versionCode = resolvedVersion.code
+        val targetName = "${paperplaneArtifactBase(versionName, versionCode, "release")}.aab"
+        val outDir = layout.buildDirectory.dir("outputs/bundle/release").get().asFile
+        val bundle = outDir.listFiles()?.firstOrNull { it.isFile && it.extension == "aab" } ?: return@doLast
+        val target = outDir.resolve(targetName)
+        if (target.exists()) {
+            target.delete()
+        }
+        check(bundle.renameTo(target)) {
+            "Failed to rename ${bundle.name} to ${target.name}"
         }
     }
 }
