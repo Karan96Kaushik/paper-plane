@@ -104,12 +104,13 @@ internal class SupabaseAuth(
     }
 
     private fun signInFailure(response: SupabaseHttpResponse): String {
-        response.body?.let(::parseJsonObject)?.let(::authJsonUserMessage)?.let { detail ->
+        val detail = response.body?.let(::parseJsonObject)?.let(::authJsonUserMessage)
+        if (detail != null) {
             SupabaseLog.signInBlocked("auth rejected (HTTP ${response.statusCode}): $detail")
         }
         return when (response.statusCode) {
             0 -> "Could not reach Supabase."
-            400, 401 -> "Email or password was rejected."
+            400, 401 -> detail ?: "Email or password was rejected."
             else -> SupabasePublisher.failureMessage(response.statusCode, response.body)
         }
     }

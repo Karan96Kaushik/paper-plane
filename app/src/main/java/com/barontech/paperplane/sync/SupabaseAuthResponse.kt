@@ -133,6 +133,7 @@ private fun buildSessionFromTokens(
 
     val email = user?.optString("email")?.trim().orEmpty()
         .ifBlank { jwtClaim(access, "email").orEmpty() }
+        .ifBlank { SupabaseAuthJsonScalars.extractString(json, "email")?.trim().orEmpty() }
         .ifBlank { fallbackEmail.trim() }
 
     return AuthSessionParse.Success(
