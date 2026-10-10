@@ -7,6 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+    id("com.google.gms.google-services")
 }
 
 val localProperties = Properties().apply {
@@ -108,12 +109,12 @@ fun resolveAppVersion(): com.paperplane.semver.ResolvedVersion {
 val resolvedVersion = resolveAppVersion()
 
 android {
-    namespace = "com.example.notificationmonitor"
+    namespace = "com.barontech.paperplane"
     compileSdk = prop("compileSdkVersion", "35").toInt()
     buildToolsVersion = prop("buildToolsVersion", "35.0.0")
 
     defaultConfig {
-        applicationId = "com.example.notificationmonitor"
+        applicationId = "com.barontech.paperplane"
         minSdk = prop("minSdkVersion", "26").toInt()
         targetSdk = prop("targetSdkVersion", "35").toInt()
         versionCode = resolvedVersion.code
@@ -225,6 +226,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    implementation(platform("com.google.firebase:firebase-bom:35.0.0"))
+    implementation("com.google.firebase:firebase-messaging")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

@@ -12,4 +12,7 @@
     <string name="background_channel_description">Keeps notification monitoring running in the background</string>
     <string name="background_notification_title">PaperPlane is running</string>
     <string name="background_notification_text">Reading new notifications and republishing the ones you selected.</string>
+    <string name="push_channel_id" translatable="false">push_notifications</string>
+    <string name="push_channel_name">Push notifications</string>
+    <string name="push_channel_description">Messages sent to this device</string>
 </resources>

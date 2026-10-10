@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1076219882357",
+    "project_id": "paperplane-dc475",
+    "storage_bucket": "paperplane-dc475.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1076219882357:android:9c6aaa3968aea60889413c",
+        "android_client_info": {
+          "package_name": "com.barontech.paperplane"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAzEVhEloiFGdAu_5NRNNRltUi26k_TXU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1076219882357:android:9c6aaa3968aea60889413c",
+        "android_client_info": {
+          "package_name": "com.barontech.paperplane.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAzEVhEloiFGdAu_5NRNNRltUi26k_TXU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

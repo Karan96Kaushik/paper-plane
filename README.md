@@ -111,8 +111,9 @@ Monitoring continues while the UI is closed; the system binds `NotificationListe
 - Enable/disable monitoring per installed app
 - Send a local test notification
 - Configurable retention (1 / 7 / 30 days / Forever) with WorkManager cleanup
+- Ignore a repeat of the same notification within a time window (Settings → Duplicates, default 1 minute)
 - Android 13+ `POST_NOTIFICATIONS` request for local notifications only
-- Optional Supabase push: sign in with a Supabase user, then captured notifications are inserted for that user
+- Optional Supabase push: sign in with a Supabase user, then captured notifications are inserted for that user. Exclusion rules can skip uploads by wildcard on title, text, sub text, category, or app name
 
 ## Supabase push
 
@@ -121,6 +122,8 @@ In **Settings → Supabase**, enter the project URL (`https://your-project.supab
 The publishable key only identifies the project. Inserts use that user's access token on the `Authorization` header; the publishable key is sent on `apikey` only. Each row stores their `user_id`. The password is not saved. The session stays on this device and is refreshed when it expires.
 
 New captured notifications are inserted with the REST API. If the device is offline, they stay queued and are sent together when the connection returns. **Push existing history** sends rows that have not been delivered to the current user yet. Changing the project URL or signing in as a different user marks local history as unsent so it can be pushed again.
+
+**Don't upload** rules skip matching notifications. Each rule is a case-insensitive wildcard on one field: title, text, sub text, category, or app name. `*` matches any text and `?` matches one character, and the pattern is compared to the whole field (`*otp*` skips a title that contains OTP). A notification is skipped when any enabled rule matches. Skipped rows stay in local history. Changing or removing a rule queues those rows again so the next upload can send the ones that no longer match.
 
 Create the table in the Supabase SQL editor. Email sign-in must be enabled for the project.
 
@@ -203,7 +206,7 @@ Local verification of the same commands CodeBuild runs:
 ## Project layout
 
 ```text
-app/src/main/java/com/example/notificationmonitor/
+app/src/main/java/com/barontech/paperplane/
   notification/   # Listener, parser, local NotificationManager
   database/        # Room entities + DAOs
   repository/      # Single UI data access layer
@@ -213,7 +216,7 @@ app/src/main/java/com/example/notificationmonitor/
   work/            # Retention cleanup worker
 ```
 
-Package / application id: `com.example.notificationmonitor` (change in `app/build.gradle.kts` `namespace` / `applicationId`).
+Package / application id: `com.barontech.paperplane` (change in `app/build.gradle.kts` `namespace` / `applicationId`).
 
 ## Privacy
 

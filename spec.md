@@ -70,8 +70,8 @@ notification-monitor/
 │           ├── AndroidManifest.xml
 │           ├── java/
 │           │   └── com/
-│           │       └── example/
-│           │           └── notificationmonitor/
+│           │       └── barontech/
+│           │           └── paperplane/
 │           │               ├── MainActivity.kt
 │           │               ├── NotificationMonitorApplication.kt
 │           │               │
@@ -116,7 +116,7 @@ notification-monitor/
 Package name:
 
 ```text
-com.example.notificationmonitor
+com.barontech.paperplane
 ```
 
 Make the package name easy to change through Gradle configuration.
