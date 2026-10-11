@@ -17,6 +17,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import com.barontech.paperplane.notification.CurtisActionId
+import com.barontech.paperplane.notification.CurtisCommand
+import com.barontech.paperplane.notification.CurtisInteractions
+import com.barontech.paperplane.notification.CurtisIntents
+import com.barontech.paperplane.notification.CurtisPayload
 import com.barontech.paperplane.ui.NotificationMonitorApp
 import com.barontech.paperplane.ui.theme.NotificationMonitorTheme
 
@@ -26,12 +31,18 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op */ }
 
     private var pendingNotificationId by mutableStateOf<Long?>(null)
+    private var pendingCurtis by mutableStateOf<CurtisPayload?>(null)
+    private var curtisLaunchId by mutableStateOf(0)
+    private var pendingCurtisCommand by mutableStateOf<CurtisCommand?>(null)
+    private var curtisCommandId by mutableStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         maybeRequestPostNotificationsPermission()
-        pendingNotificationId = notificationIdFrom(intent)
+        if (savedInstanceState == null) {
+            applyLaunchIntent(intent)
+        }
 
         val app = application as NotificationMonitorApplication
         setContent {
@@ -47,7 +58,22 @@ class MainActivity : ComponentActivity() {
                         republisher = app.republisher,
                         supabasePublisher = app.supabasePublisher,
                         pendingNotificationId = openId,
-                        onPendingNotificationConsumed = { pendingNotificationId = null }
+                        onPendingNotificationConsumed = { pendingNotificationId = null },
+                        pendingCurtis = pendingCurtis,
+                        curtisLaunchId = curtisLaunchId,
+                        onPendingCurtisConsumed = { pendingCurtis = null },
+                        pendingCurtisCommand = pendingCurtisCommand,
+                        curtisCommandId = curtisCommandId,
+                        onPendingCurtisCommandConsumed = { pendingCurtisCommand = null },
+                        onCurtisSnooze = { payload, minutes ->
+                            CurtisInteractions.snooze(this, payload, minutes)
+                        },
+                        onCurtisMarkDone = { payload ->
+                            CurtisInteractions.markDone(this, payload)
+                        },
+                        onCurtisExternal = { uri ->
+                            CurtisInteractions.openExternal(this, uri)
+                        }
                     )
                 }
             }
@@ -57,7 +83,27 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingNotificationId = notificationIdFrom(intent)
+        applyLaunchIntent(intent)
+    }
+
+    private fun applyLaunchIntent(source: Intent?) {
+        val payload = CurtisIntents.payloadFrom(source?.extras)
+        val action = CurtisActionId.fromWire(source?.getStringExtra(CurtisIntents.EXTRA_ACTION))
+        if (payload != null && action?.opensUi == true) {
+            pendingCurtisCommand = CurtisCommand(payload, action)
+            curtisCommandId += 1
+            pendingCurtis = null
+            pendingNotificationId = null
+            return
+        }
+        if (payload != null) {
+            pendingCurtis = payload
+            curtisLaunchId += 1
+            pendingCurtisCommand = null
+            pendingNotificationId = null
+            return
+        }
+        pendingNotificationId = notificationIdFrom(source)
     }
 
     private fun maybeRequestPostNotificationsPermission() {

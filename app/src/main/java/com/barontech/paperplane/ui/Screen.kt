@@ -16,6 +16,13 @@ sealed class Screen(val route: String, val label: String) {
     data object WorkflowEdit : Screen("workflow/{workflowId}", "Workflow") {
         fun createRoute(id: Long) = "workflow/$id"
     }
+    data object CurtisDetail : Screen("curtis_detail", "Notification")
+    data object CurtisRun : Screen("curtis_run/{runId}", "Run") {
+        fun createRoute(id: String) = "curtis_run/${android.net.Uri.encode(id)}"
+    }
+    data object CurtisChat : Screen("curtis_chat/{conversationId}", "Chat") {
+        fun createRoute(id: String) = "curtis_chat/${android.net.Uri.encode(id)}"
+    }
 
     companion object {
         val bottomNavItems = listOf(Home, History, Apps, Republish, Settings)

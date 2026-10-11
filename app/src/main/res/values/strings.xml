@@ -15,4 +15,15 @@
     <string name="push_channel_id" translatable="false">push_notifications</string>
     <string name="push_channel_name">Push notifications</string>
     <string name="push_channel_description">Messages sent to this device</string>
+    <string name="curtis_channel_urgent">Urgent</string>
+    <string name="curtis_channel_urgent_description">Time-sensitive alerts</string>
+    <string name="curtis_channel_default">Notifications</string>
+    <string name="curtis_channel_default_description">General alerts</string>
+    <string name="curtis_channel_digest">Digests</string>
+    <string name="curtis_channel_digest_description">Summaries that stay quiet</string>
+    <string name="curtis_channel_progress">Progress</string>
+    <string name="curtis_channel_progress_description">Ongoing tasks and live updates</string>
+    <string name="curtis_channel_quiet">Quiet</string>
+    <string name="curtis_channel_quiet_description">Silent notifications</string>
+    <string name="curtis_group_summary">%1$d updates</string>
 </resources>

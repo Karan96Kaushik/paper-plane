@@ -62,6 +62,7 @@ class LocalNotificationManager(
                 description = context.getString(R.string.push_channel_description)
             }
         )
+        CurtisChannels.ensure(context)
     }
 
     override fun canPostNotifications(): Boolean {

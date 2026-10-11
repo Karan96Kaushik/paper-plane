@@ -55,6 +55,7 @@ import com.barontech.paperplane.repository.NotificationRepository
 import com.barontech.paperplane.settings.DedupeWindow
 import com.barontech.paperplane.settings.RetentionPeriod
 import com.barontech.paperplane.settings.SupabaseConfig
+import com.barontech.paperplane.settings.SupabaseCredentialPaste
 import com.barontech.paperplane.sync.SupabaseOutcome
 import com.barontech.paperplane.sync.SupabasePublisher
 import com.barontech.paperplane.util.NotificationAccessHelper
@@ -94,6 +95,9 @@ fun SettingsScreen(
     var supabasePasswordVisible by remember { mutableStateOf(false) }
     var supabaseStatus by remember { mutableStateOf<String?>(null) }
     var supabaseBusy by remember { mutableStateOf(false) }
+    var showCredentialPaste by remember { mutableStateOf(false) }
+    var credentialPasteText by remember { mutableStateOf("") }
+    var credentialPasteError by remember { mutableStateOf<String?>(null) }
 
     val retention by repository.observeRetentionPeriod()
         .collectAsStateWithLifecycle(initialValue = RetentionPeriod.SEVEN_DAYS)
@@ -351,6 +355,22 @@ fun SettingsScreen(
                         enabled = !supabaseBusy
                     )
                 }
+                OutlinedButton(
+                    onClick = {
+                        credentialPasteText = ""
+                        credentialPasteError = null
+                        showCredentialPaste = true
+                    },
+                    enabled = !supabaseBusy,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Paste credentials")
+                }
+                Text(
+                    text = "Optional. Paste a project URL, publishable key, table, email, and password together. Line breaks inside a value are removed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 OutlinedTextField(
                     value = supabaseUrl,
                     onValueChange = { supabaseUrl = it },
@@ -627,6 +647,69 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    if (showCredentialPaste) {
+        AlertDialog(
+            onDismissRequest = { showCredentialPaste = false },
+            title = { Text("Paste credentials") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Labels are optional. One value per line works, and so does Project URL, Publishable key, Table, Email, and Password.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = credentialPasteText,
+                        onValueChange = {
+                            credentialPasteText = it
+                            credentialPasteError = null
+                        },
+                        placeholder = {
+                            Text("https://your-project.supabase.co\nsb_publishable_...\nyou@example.com\npassword")
+                        },
+                        minLines = 4,
+                        maxLines = 8,
+                        enabled = !supabaseBusy,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    credentialPasteError?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val parsed = SupabaseCredentialPaste.parse(credentialPasteText)
+                        if (!parsed.matchedAny()) {
+                            credentialPasteError = parsed.summary()
+                            return@TextButton
+                        }
+                        parsed.projectUrl?.let { supabaseUrl = it }
+                        parsed.publishableKey?.let { supabasePublishableKey = it }
+                        parsed.table?.let { supabaseTable = it }
+                        parsed.email?.let { supabaseEmail = it }
+                        parsed.password?.let { supabasePassword = it }
+                        supabaseStatus = parsed.summary()
+                        showCredentialPaste = false
+                    },
+                    enabled = credentialPasteText.isNotBlank() && !supabaseBusy
+                ) {
+                    Text("Fill fields")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCredentialPaste = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showClearDialog) {

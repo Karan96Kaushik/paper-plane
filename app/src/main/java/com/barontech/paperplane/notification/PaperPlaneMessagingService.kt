@@ -24,6 +24,13 @@ class PaperPlaneMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        if (message.data.containsKey("curtis_v")) {
+            val shown = CurtisNotifier(this).show(message.data)
+            if (!shown) {
+                Log.i(TAG, "Curtis push was not posted")
+            }
+            return
+        }
         val title = message.notification?.title ?: message.data["title"]
         val body = message.notification?.body
             ?: message.data["body"]
