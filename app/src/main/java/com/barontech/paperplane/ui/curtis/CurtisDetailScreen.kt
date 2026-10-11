@@ -123,8 +123,8 @@ fun CurtisDetailScreen(
                 payload.category?.let { DetailLine("Category", it) }
                 payload.relatedNotificationId?.let { DetailLine("Related", it) }
                 payload.deepLink?.let { DetailLine("Link", it) }
-                payload.shortCriticalText?.let { DetailLine("Status", it) }
-                if (payload.ongoing) {
+                payload.shortCriticalText?.let { DetailLine("Update", it) }
+                if (payload.ongoing && payload.style != CurtisStyle.PROGRESS) {
                     DetailLine("Status", "In progress")
                 }
                 val visibleExtras = payload.extras.filterKeys { key ->

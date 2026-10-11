@@ -67,6 +67,13 @@ fun NotificationMonitorApp(
     onCurtisExternal: (String) -> Boolean = { false }
 ) {
     val navController = rememberNavController()
+    val leaveCurtis = {
+        if (!navController.popBackStack()) {
+            navController.navigate(Screen.Home.route) {
+                launchSingleTop = true
+            }
+        }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = Screen.bottomNavItems.any { it.route == currentRoute }
@@ -217,12 +224,12 @@ fun NotificationMonitorApp(
                     CurtisTargetScreen(
                         title = "Notification",
                         id = "This notification is no longer available",
-                        onBack = { navController.popBackStack() }
+                        onBack = { leaveCurtis() }
                     )
                 } else {
                     CurtisDetailScreen(
                         payload = payload,
-                        onBack = { navController.popBackStack() },
+                        onBack = { leaveCurtis() },
                         onSnooze = { minutes -> onCurtisSnooze(payload, minutes) },
                         onMarkDone = { onCurtisMarkDone(payload) },
                         onInApp = { route ->
@@ -240,7 +247,7 @@ fun NotificationMonitorApp(
                 CurtisTargetScreen(
                     title = "Run",
                     id = runId,
-                    onBack = { navController.popBackStack() }
+                    onBack = { leaveCurtis() }
                 )
             }
             composable(
@@ -251,7 +258,7 @@ fun NotificationMonitorApp(
                 CurtisTargetScreen(
                     title = "Chat",
                     id = conversationId,
-                    onBack = { navController.popBackStack() }
+                    onBack = { leaveCurtis() }
                 )
             }
             composable(

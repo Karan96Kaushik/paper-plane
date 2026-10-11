@@ -1,7 +1,6 @@
 package com.barontech.paperplane.notification
 
 import android.content.Context
-import android.content.SharedPreferences
 
 internal class CurtisPayloadStore(context: Context) {
 
@@ -42,9 +41,8 @@ internal class CurtisPayloadStore(context: Context) {
     fun remove(id: Int) {
         synchronized(lock) {
             prefs.edit()
-                .remove(payloadKey(id))
+                remove(payloadKey(id))
                 .remove(metaKey(id))
-                .remove(expectKey(id))
                 .commit()
         }
     }
@@ -75,20 +73,6 @@ internal class CurtisPayloadStore(context: Context) {
         }
     }
 
-    fun expectProgrammaticCancel(id: Int) {
-        synchronized(lock) {
-            prefs.edit().putBoolean(expectKey(id), true).commit()
-        }
-    }
-
-    fun consumeProgrammaticCancel(id: Int): Boolean {
-        synchronized(lock) {
-            val expected = prefs.getBoolean(expectKey(id), false)
-            if (expected) prefs.edit().remove(expectKey(id)).commit()
-            return expected
-        }
-    }
-
     private fun pruneLocked() {
         val metas = prefs.all.keys
             .filter { it.startsWith(META_PREFIX) }
@@ -101,7 +85,7 @@ internal class CurtisPayloadStore(context: Context) {
         if (metas.size <= MAX_STORED) return
         val editor = prefs.edit()
         metas.take(metas.size - MAX_STORED).forEach { (id, _) ->
-            editor.remove(payloadKey(id)).remove(metaKey(id)).remove(expectKey(id))
+            editor.remove(payloadKey(id)).remove(metaKey(id))
         }
         editor.commit()
     }
@@ -113,7 +97,6 @@ internal class CurtisPayloadStore(context: Context) {
 
     private fun payloadKey(id: Int) = "$PAYLOAD_PREFIX$id"
     private fun metaKey(id: Int) = "$META_PREFIX$id"
-    private fun expectKey(id: Int) = "$EXPECT_PREFIX$id"
 
     data class ShadeMember(val id: Int, val title: String, val channelId: String)
 
@@ -121,7 +104,6 @@ internal class CurtisPayloadStore(context: Context) {
         private const val PREFS = "curtis_notifications"
         private const val PAYLOAD_PREFIX = "p."
         private const val META_PREFIX = "m."
-        private const val EXPECT_PREFIX = "x."
         private const val MAX_STORED = 40
     }
 }

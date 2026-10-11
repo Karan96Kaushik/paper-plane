@@ -62,10 +62,6 @@ object CurtisInteractions {
 class CurtisActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            CurtisIntents.ACTION_DISMISS -> {
-                val id = intent.getIntExtra(CurtisIntents.EXTRA_NOTIFICATION_ID, -1)
-                if (id >= 0) CurtisNotifier(context).onUserDismiss(id)
-            }
             CurtisIntents.ACTION_SNOOZE -> {
                 val payload = CurtisIntents.payloadFrom(intent.extras) ?: return
                 CurtisInteractions.snooze(context, payload, SNOOZE_MINUTES)

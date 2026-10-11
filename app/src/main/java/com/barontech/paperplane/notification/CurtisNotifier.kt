@@ -16,10 +16,8 @@ import com.barontech.paperplane.R
 object CurtisIntents {
     const val CLICK_ACTION = "CURTIS_OPEN"
     const val EXTRA_ACTION = "com.barontech.paperplane.extra.CURTIS_ACTION"
-    const val EXTRA_NOTIFICATION_ID = "com.barontech.paperplane.extra.CURTIS_NOTIFICATION_ID"
     const val ACTION_SNOOZE = "com.barontech.paperplane.action.CURTIS_SNOOZE"
     const val ACTION_MARK_DONE = "com.barontech.paperplane.action.CURTIS_MARK_DONE"
-    const val ACTION_DISMISS = "com.barontech.paperplane.action.CURTIS_DISMISS"
 
     private const val PRIVATE_PREFIX = "com.barontech.paperplane.extra."
 
@@ -77,16 +75,7 @@ class CurtisNotifier(private val context: Context) {
     }
 
     fun cancel(notificationId: Int) {
-        store.expectProgrammaticCancel(notificationId)
         NotificationManagerCompat.from(context).cancel(notificationId)
-    }
-
-    fun onUserDismiss(notificationId: Int) {
-        if (store.consumeProgrammaticCancel(notificationId)) return
-        val group = store.groupOf(notificationId)
-        store.remove(notificationId)
-        CurtisInteractions.cancelSnooze(context, notificationId)
-        group?.let { refreshSummary(it) }
     }
 
     fun hideForSnooze(payload: CurtisPayload) {
@@ -137,7 +126,6 @@ class CurtisNotifier(private val context: Context) {
             .setSilent(payload.silent)
             .setPriority(priority(payload))
             .setContentIntent(contentIntent(payload))
-            .setDeleteIntent(deleteIntent(payload))
             .setAllowSystemGeneratedContextualActions(false)
         payload.category?.let { builder.setCategory(it) }
         payload.whenMillis?.let {
@@ -189,7 +177,9 @@ class CurtisNotifier(private val context: Context) {
             }
             CurtisStyle.PROGRESS -> {
                 val max = payload.progressMax ?: 0
-                val current = (payload.progressCurrent ?: 0).coerceAtLeast(0)
+                val current = (payload.progressCurrent ?: 0).let { value ->
+                    if (max > 0) value.coerceIn(0, max) else value.coerceAtLeast(0)
+                }
                 builder.setProgress(max, current, payload.progressIndeterminate)
                 if (payload.expandedBody != null) {
                     builder.setStyle(NotificationCompat.BigTextStyle().bigText(payload.expandedBody))
@@ -270,19 +260,6 @@ class CurtisNotifier(private val context: Context) {
         )
     }
 
-    private fun deleteIntent(payload: CurtisPayload): PendingIntent {
-        val intent = Intent(context, CurtisActionReceiver::class.java).apply {
-            action = CurtisIntents.ACTION_DISMISS
-            putExtra(CurtisIntents.EXTRA_NOTIFICATION_ID, payload.notificationId)
-        }
-        return PendingIntent.getBroadcast(
-            context,
-            CurtisPayload.requestCode(payload.notificationId, "dismiss"),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-    }
-
     private fun homeIntent(requestId: Int): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -327,7 +304,6 @@ class CurtisNotifier(private val context: Context) {
         return Intent(context, CurtisActionReceiver::class.java).apply {
             this.action = action
             CurtisIntents.writeData(this, payload.raw)
-            putExtra(CurtisIntents.EXTRA_NOTIFICATION_ID, payload.notificationId)
         }
     }
 

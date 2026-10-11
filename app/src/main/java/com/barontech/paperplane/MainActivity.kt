@@ -66,13 +66,13 @@ class MainActivity : ComponentActivity() {
                         curtisCommandId = curtisCommandId,
                         onPendingCurtisCommandConsumed = { pendingCurtisCommand = null },
                         onCurtisSnooze = { payload, minutes ->
-                            CurtisInteractions.snooze(this, payload, minutes)
+                            CurtisInteractions.snooze(this@MainActivity, payload, minutes)
                         },
                         onCurtisMarkDone = { payload ->
-                            CurtisInteractions.markDone(this, payload)
+                            CurtisInteractions.markDone(this@MainActivity, payload)
                         },
                         onCurtisExternal = { uri ->
-                            CurtisInteractions.openExternal(this, uri)
+                            CurtisInteractions.openExternal(this@MainActivity, uri)
                         }
                     )
                 }
